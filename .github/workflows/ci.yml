@@ -26,8 +26,8 @@ jobs:
         ports: ["5432:5432"]
         options: --health-cmd "pg_isready -U kyc -d kyc" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12", cache: pip, cache-dependency-path: "**/requirements.txt" }
       - run: pip install -r requirements.txt -r backend/requirements.txt
       - name: Prototype routing tests
@@ -46,8 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: frontend } }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: "24", cache: npm, cache-dependency-path: frontend/package-lock.json }
       - run: npm ci
       - run: npm run lint
@@ -64,27 +64,27 @@ jobs:
         ports: ["5432:5432"]
         options: --health-cmd "pg_isready -U kyc -d kyc" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - name: Backend into ./venv (the Playwright config starts the API and worker from it)
         run: python -m venv venv && venv/bin/pip install -r requirements.txt -r backend/requirements.txt
       - name: Migrations
         working-directory: backend
         run: ../venv/bin/alembic upgrade head
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with: { node-version: "24", cache: npm, cache-dependency-path: frontend/package-lock.json }
       - name: End-to-end tests (installed Chrome)
         working-directory: frontend
         run: npm ci && npx playwright test
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with: { name: e2e-results, path: frontend/test-results, retention-days: 7 }
 
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build and start the whole stack
         run: |
           echo "KYC_JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')" > .env
