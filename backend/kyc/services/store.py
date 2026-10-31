@@ -57,8 +57,26 @@ def doc_dict(d: m.Document) -> dict:
 
 
 # ============================================================== config
+_REFERENCE: dict[tuple[int, int], dict] = {}
+
+
+def clear_config_cache() -> None:
+    """Reference data is cached per process; call this after changing it (or restart the worker)."""
+    _REFERENCE.clear()
+
+
 def load_config(db: Session, row: m.Case) -> dict:
-    """The reference data the master and agents read, in the prototype's JSON shape."""
+    """The reference data the master and agents read, in the prototype's JSON shape.
+    Only the client's documents are read every time; the rest is static reference data and cached."""
+    key = (row.checklist_id, row.questionnaire_id)
+    if key not in _REFERENCE:
+        _REFERENCE[key] = _load_reference(db, row)
+    store = db.scalars(select(m.Document).where(m.Document.client_id == row.client_id, m.Document.case_id.is_(None))
+                       .order_by(m.Document.id))
+    return {**_REFERENCE[key], "document_store": [doc_dict(d) for d in store]}
+
+
+def _load_reference(db: Session, row: m.Case) -> dict:
     cl = db.get(m.Checklist, row.checklist_id)
     qn = db.get(m.Questionnaire, row.questionnaire_id)
     dep_docs, dep_fields = {}, {}
@@ -66,8 +84,6 @@ def load_config(db: Session, row: m.Case) -> dict:
         dep_docs.setdefault(r.item, []).append(r.field_key)
     for r in db.scalars(select(m.FieldQuestion).where(m.FieldQuestion.questionnaire_id == qn.id).order_by(m.FieldQuestion.id)):
         dep_fields.setdefault(r.field_key, []).append(r.q_id)
-    store = db.scalars(select(m.Document).where(m.Document.client_id == row.client_id, m.Document.case_id.is_(None))
-                       .order_by(m.Document.id))
     return {
         "checklist": {"id": cl.code, "items": [{"item": i.item, "label": i.label, "identity_critical": i.identity_critical}
                                                for i in cl.items]},
@@ -80,7 +96,6 @@ def load_config(db: Session, row: m.Case) -> dict:
             "policy": {p.code: p.text for p in db.scalars(select(m.PolicyRule))},
         },
         "dependency_map": {"doc_item_to_fields": dep_docs, "field_to_questions": dep_fields},
-        "document_store": [doc_dict(d) for d in store],
     }
 
 
