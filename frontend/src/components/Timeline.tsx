@@ -1,6 +1,6 @@
 // Every event on the case, oldest first, with the master's decision on it: rules, guardrails,
 // rationale and the tasks it dispatched. WAIT decisions (nothing changes) are folded away by default.
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Task, TimelineEvent } from '../api'
 import { AGENT_LABEL, fmtTime, STATUS_LABEL } from '../format'
 import { RuleChips } from '../ui'
@@ -49,13 +49,20 @@ function TaskLine({ t }: { t: Task }) {
 interface Props {
   events: TimelineEvent[]
   selectedSeq: number | null
+  /** during replay: the step shown; later events are dimmed */
+  replaySeq?: number | null
   onSelect: (seq: number | null) => void
 }
 
-export default function Timeline({ events, selectedSeq, onSelect }: Props) {
+export default function Timeline({ events, selectedSeq, replaySeq = null, onSelect }: Props) {
   const [showWaits, setShowWaits] = useState(false)
   const waits = events.filter((e) => e.decision?.decision === 'WAIT').length
-  const shown = showWaits ? events : events.filter((e) => e.decision?.decision !== 'WAIT')
+  // a folded WAIT still shows when it is the selected (or replayed) step
+  const shown = events.filter((e) => showWaits || e.decision?.decision !== 'WAIT' || e.seq === selectedSeq)
+  const list = useRef<HTMLOListElement>(null)
+  useEffect(() => { // keep the replayed step in view inside the scrolling list
+    if (replaySeq !== null) list.current?.querySelector('.tl-item.selected')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [replaySeq])
 
   return (
     <div className="card">
@@ -70,12 +77,13 @@ export default function Timeline({ events, selectedSeq, onSelect }: Props) {
           </label>
         )}
       </div>
-      <ol className="timeline">
+      <ol className="timeline" ref={list}>
         {shown.map((e) => {
           const d = e.decision
           const changed = d && d.prev_status !== d.new_status
+          const future = replaySeq !== null && e.seq > replaySeq
           return (
-            <li key={e.seq} className={`tl-item${selectedSeq === e.seq ? ' selected' : ''}${d?.decision === 'WAIT' ? ' wait' : ''}`}>
+            <li key={e.seq} className={`tl-item${selectedSeq === e.seq ? ' selected' : ''}${d?.decision === 'WAIT' ? ' wait' : ''}${future ? ' future' : ''}`}>
               <button className="tl-hit" onClick={() => onSelect(selectedSeq === e.seq ? null : e.seq)}
                       aria-pressed={selectedSeq === e.seq} aria-label={`Step ${e.seq}: ${title(e)}`} />
               <div className={`tl-icon src-${e.type === 'AGENT_RESULT' ? 'agent' : e.source}`} aria-hidden>{ICON[e.type] ?? '•'}</div>

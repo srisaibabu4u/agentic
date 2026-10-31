@@ -299,3 +299,12 @@ dialog.doc-viewer { width: min(760px, calc(100vw - 32px)); max-height: 80vh; bor
 dialog.doc-viewer::backdrop { background: rgb(0 0 0 / 45%); }
 .doc-text { white-space: pre-wrap; background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 12px; max-height: 55vh; overflow: auto; }
 .doc-text .cited { background: var(--maker-soft); box-shadow: inset 3px 0 0 var(--maker); }
+
+/* ---------- replay ---------- */
+.replay { border-bottom: 1px solid var(--border); }
+.replay-bar { display: flex; align-items: center; gap: 6px; padding: 10px 16px; flex-wrap: wrap; }
+.replay-bar button { min-width: 36px; }
+.replay-bar input[type="range"] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+.replay-state { padding: 0 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+.nowrap { white-space: nowrap; }
+.tl-item.future { opacity: .35; }

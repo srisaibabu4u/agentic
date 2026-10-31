@@ -235,6 +235,33 @@ Until JWT login (Phase 4), the acting user is the `X-User` header. Actions are a
 maker or checker (otherwise `403`) and only while the case waits on that role (otherwise `409`). They append an event
 and return `202`; the worker applies them.
 
+## Phase 3: the UI
+
+React + Vite + TypeScript in [frontend/](frontend/), with React Flow for the workflow diagram.
+
+```bash
+cd backend && ../venv/Scripts/python -m uvicorn kyc.api.app:app --reload   # terminal 1: API
+cd backend && ../venv/Scripts/python -m kyc.worker                          # terminal 2: worker
+cd frontend && npm install && npm run dev                                   # terminal 3: http://localhost:5173
+```
+
+Pick who you are in **Acting as** (a stand-in for login until Phase 4). Then:
+
+- **Dashboard:** tiles for *waiting on me*, *agents working*, *due within 5 business days* and *closed*, which double as filters; search; sortable case table.
+- **Case page:**
+  - **Flow diagram:** every status and the master's routes (from `GET /workflow`), with the route this case took drawn in bold and labelled with its rules, and the current status lit.
+  - **Live updates:** a server-sent events stream refreshes the page as the worker moves the case ("● Live").
+  - **Replay:** steps or plays through the case's history; at each step it shows what the master saw when it decided.
+  - **Timeline:** every event with the master's decision, rules, guardrails (hover for meaning), rationale and dispatched tasks.
+  - **Summary:** client, ownership, rating, open items, documents and answers.
+- **Maker workbench** (when the case waits on you as maker): confirm low-confidence values (G1), disposition screening hits next to our record (G2), upload missing or requested documents, see the checker's returns with the suggested redraft, then submit.
+- **Checker review:** verify the maker's inputs (four-eyes), read each answer with evidence links that open the cited page, return questions with comments, or approve with a final rating.
+
+End-to-end tests drive the real UI in your installed Chrome against the real API, worker and database. Postgres must be running, and the tests reseed it:
+
+```bash
+cd frontend && npm run e2e     # Halcyon from first maker review to approval, then replay (~1.5 min)
+```
+
 ## Next phases
-3. React UI: dashboard, live flow graph, maker workbench, checker review, audit replay.
 4. JWT login and roles, the full stack in Docker Compose, hardening.

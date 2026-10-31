@@ -16,6 +16,8 @@ const snap = (page: Page, name: string) =>
 
 test('Halcyon from first maker review to approval, through the UI', async ({ page }) => {
   await page.goto(CASE)
+  // live updates: with the stream connected the page stops polling, so every later step relies on it
+  await expect(status(page).getByText('● Live')).toBeVisible()
 
   // someone else's turn: no form, just who it is waiting on
   await actAs(page, 'aaron.koh')
@@ -79,4 +81,29 @@ test('Halcyon from first maker review to approval, through the UI', async ({ pag
   await expect(status(page).getByText('Closed')).toBeVisible()
   await expect(page.locator('.summary')).toContainText('Approved by Daniel Tan')
   await expect(page.locator('.timeline')).toContainText('R9')
+})
+
+test('replay the closed Halcyon case step by step', async ({ page }) => {
+  await page.goto(CASE)
+  await actAs(page, 'grace.lim')
+  const current = page.locator('.flow-node.current')
+  await expect(current).toContainText('Closed')
+
+  await page.getByRole('button', { name: '⟲ Replay' }).click()
+  await expect(current).toContainText('Discovery') // after step 1: NEW -> DISCOVERY (R1)
+  await expect(page.locator('.replay-state')).toContainText('What the master saw')
+  await page.getByRole('button', { name: 'Next step' }).click()
+  await expect(current).toContainText('Ingestion') // after step 2: R2
+  await expect(page.locator('.tl-item.future').first()).toBeVisible()
+
+  await page.getByLabel('Replay step').fill('6') // drag the slider
+  await expect(page.locator('.replay-bar')).toContainText('Step 7 of')
+  await page.locator('.card', { has: page.locator('.replay') }).screenshot({ path: test.info().outputPath('replay-step-7.png') })
+
+  await page.getByRole('button', { name: 'First step' }).click()
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  await expect(page.locator('.replay-bar strong', { hasText: 'Live' })).toBeVisible() // played to the end
+  await expect(current).toContainText('Closed')
+  await page.getByRole('button', { name: 'Close replay' }).click()
+  await expect(page.locator('.replay')).toHaveCount(0)
 })
