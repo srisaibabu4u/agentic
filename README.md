@@ -216,7 +216,8 @@ To start over, reseed: `python -m kyc.seed --clients 25 --reset`.
 cd backend
 ../venv/Scripts/python -m uvicorn kyc.api.app:app --reload     # terminal 1
 ../venv/Scripts/python -m kyc.worker                           # terminal 2
-curl -H "X-User: priya.nair" "http://localhost:8000/cases?waiting_on_me=true"
+TOKEN=$(curl -s -X POST localhost:8000/auth/login -H "Content-Type: application/json"   -d '{"username":"priya.nair","password":"kyc-demo-123"}' | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/cases?waiting_on_me=true"
 ```
 
 | Endpoint | Who | What |
@@ -231,7 +232,7 @@ curl -H "X-User: priya.nair" "http://localhost:8000/cases?waiting_on_me=true"
 | `POST /cases/{ref}/checker/return` | the case's checker | Return questions with comments |
 | `POST /cases/{ref}/checker/approve` | the case's checker | Approve with a final rating |
 
-Until JWT login (Phase 4), the acting user is the `X-User` header. Actions are accepted only from the case's assigned
+Sign in with `POST /auth/login` (see Phase 4). Actions are accepted only from the case's assigned
 maker or checker (otherwise `403`) and only while the case waits on that role (otherwise `409`). They append an event
 and return `202`; the worker applies them.
 
@@ -245,7 +246,7 @@ cd backend && ../venv/Scripts/python -m kyc.worker                          # te
 cd frontend && npm install && npm run dev                                   # terminal 3: http://localhost:5173
 ```
 
-Pick who you are in **Acting as** (a stand-in for login until Phase 4). Then:
+Sign in as one of the seeded users (password `kyc-demo-123`; the login page lists them). Then:
 
 - **Dashboard:** tiles for *waiting on me*, *agents working*, *due within 5 business days* and *closed*, which double as filters; search; sortable case table.
 - **Case page:**
@@ -263,5 +264,16 @@ End-to-end tests drive the real UI in your installed Chrome against the real API
 cd frontend && npm run e2e     # Halcyon from first maker review to approval, then replay (~1.5 min)
 ```
 
-## Next phases
-4. JWT login and roles, the full stack in Docker Compose, hardening.
+## Phase 4: login, one-command stack, hardening (in progress)
+
+**Login.** `POST /auth/login` with a username and password (bcrypt-hashed in `users`) returns a signed JWT
+(HS256, 8 hours). Browsers get it as an httpOnly, `SameSite=Strict` session cookie that scripts cannot read
+and other sites cannot make the browser send; API clients send it as `Authorization: Bearer <token>`.
+`POST /auth/logout` ends the session. The user's role and active flag are read from the database on every
+request, so deactivating an account signs it out immediately.
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `KYC_JWT_SECRET` | random per start (warning) | Token signing key; set a long random value outside development |
+| `KYC_TOKEN_HOURS` | `8` | Session length |
+| `KYC_COOKIE_SECURE` | `true` | HTTPS-only cookie; browsers accept it on `http://localhost` |

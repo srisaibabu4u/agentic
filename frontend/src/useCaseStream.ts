@@ -1,7 +1,8 @@
-// Live updates for one case from GET /cases/{ref}/stream (server-sent events).
-// EventSource cannot send the X-User header, so the stream is read with fetch(). Each message calls
+// Live updates for one case from GET /cases/{ref}/stream (server-sent events), read with fetch() so a
+// lost session (401) and reconnects are under our control; the session cookie goes with it. Each message calls
 // onChange; while connected the page stops polling. Reconnects with backoff; stops once the case closes.
 import { useEffect, useRef, useState } from 'react'
+import { SIGNED_OUT } from './api'
 
 export interface StreamMessage {
   case_ref: string; status: string; waiting_on: string | null; version: number
@@ -24,7 +25,8 @@ export function useCaseStream(ref: string, username: string | undefined, onChang
       let closed = false
       while (!ctrl.signal.aborted && !closed) {
         try {
-          const res = await fetch(`/api/cases/${ref}/stream`, { headers: { 'X-User': username }, signal: ctrl.signal })
+          const res = await fetch(`/api/cases/${ref}/stream`, { signal: ctrl.signal })
+          if (res.status === 401) { window.dispatchEvent(new Event(SIGNED_OUT)); return }
           if (!res.ok || !res.body) throw new Error(`stream ${res.status}`)
           setLive(true)
           retry = 1_000

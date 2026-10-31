@@ -1,30 +1,41 @@
-// Who is acting. Until JWT login (Phase 4) the user picks an identity from the
-// seeded users; the choice is remembered in this browser only.
-import { useState, type ReactNode } from 'react'
+// Who is signed in. GET /me answers from the session cookie; a 401 anywhere (expired or ended
+// session) sends the app back to the login page.
+import { useEffect, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, setActingUser, type User } from './api'
+import { api, ApiError, post, SIGNED_OUT, type User } from './api'
 import { UserContext } from './userContext'
 
-const KEY = 'kyc.user'
-
-function remembered(): string | null {
-  try { return localStorage.getItem(KEY) } catch { return null }
+async function me(): Promise<User | null> {
+  try {
+    return await api<User>('/me')
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) return null
+    throw e
+  }
 }
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
-  const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => api<User[]>('/users') })
-  const [username, setUsername] = useState<string | null>(remembered)
+  const { data: user, isPending, error } = useQuery({ queryKey: ['me'], queryFn: me, staleTime: Infinity, retry: false })
 
-  // fall back to the first maker when nothing (or an unknown name) is remembered
-  const user = users.find((u) => u.username === username) ?? users.find((u) => u.role === 'maker') ?? users[0] ?? null
-  setActingUser(user?.username ?? null)
+  useEffect(() => {
+    const out = () => { qc.setQueryData(['me'], null) }
+    window.addEventListener(SIGNED_OUT, out)
+    return () => window.removeEventListener(SIGNED_OUT, out)
+  }, [qc])
 
-  const setUser = (name: string) => {
-    try { localStorage.setItem(KEY, name) } catch { /* private mode */ }
-    setActingUser(name)
-    setUsername(name)
-    qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'users' })
+  const login = async (username: string, password: string) => {
+    const r = await post<{ user: User }>('/auth/login', { username, password })
+    qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' }) // nothing cached from another user
+    qc.setQueryData(['me'], r.user)
   }
-  return <UserContext.Provider value={{ user, users, setUser }}>{children}</UserContext.Provider>
+  const logout = async () => {
+    await post('/auth/logout', {})
+    qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
+    qc.setQueryData(['me'], null)
+  }
+
+  if (isPending) return <p className="page muted">Loading…</p>
+  if (error) return <p className="page notice error">Cannot reach the API: {String(error)}</p>
+  return <UserContext.Provider value={{ user: user ?? null, login, logout }}>{children}</UserContext.Provider>
 }
