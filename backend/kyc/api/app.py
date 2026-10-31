@@ -11,7 +11,7 @@ import os
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
@@ -37,6 +37,12 @@ def create_app() -> FastAPI:
     def health(db: Session = Depends(get_db)) -> dict:
         db.execute(text("SELECT 1"))
         return {"status": "ok"}
+
+    @app.get("/users", tags=["meta"])
+    def users(db: Session = Depends(get_db)) -> list[dict]:
+        """For the UI's user switcher until JWT login (Phase 4); deliberately needs no X-User."""
+        return [user_ref(u) | {"role": u.role}
+                for u in db.scalars(select(m.User).where(m.User.is_active).order_by(m.User.role, m.User.username))]
 
     @app.get("/me", tags=["meta"])
     def me(user: m.User = Depends(current_user)) -> dict:
