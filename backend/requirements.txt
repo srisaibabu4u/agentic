@@ -1,0 +1,6 @@
+sqlalchemy>=2.0.36
+alembic>=1.14
+psycopg[binary]>=3.2
+bcrypt>=4.2
+faker>=33.0
+pytest>=8.3

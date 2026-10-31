@@ -1,0 +1,21 @@
+# Phase 1: database only. The api, worker and ui services are added in later phases.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: kyc-db
+    environment:
+      POSTGRES_USER: kyc
+      POSTGRES_PASSWORD: kyc          # dummy local credential
+      POSTGRES_DB: kyc
+    ports:
+      - "5432:5432"
+    volumes:
+      - kyc-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyc -d kyc"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  kyc-pgdata:

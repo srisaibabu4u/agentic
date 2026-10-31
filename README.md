@@ -1,4 +1,11 @@
-# KYC renewal: master + specialised agents (prototype)
+# KYC renewal: master + specialised agents
+
+> **Status:** moving from the prototype below to a production-style app (React + Vite UI, FastAPI,
+> PostgreSQL 16, JWT maker/checker/admin roles, agents offline by default with optional Claude).
+> Phase 1 (database, migrations, dummy-data seed) is in [backend/](backend/). See
+> [Production backend](#production-backend) at the end. The prototype still runs unchanged.
+
+# Prototype
 
 A runnable prototype of an autonomous client risk assessment renewal. A **master orchestrator** decides every next step and dispatches work to five **specialised agents**. The case then moves through **maker → automated review → checker** until it is approved and closed.
 
@@ -146,3 +153,45 @@ Edit `data/sample_case.json`, for example:
 - **Agent tools.** Agent 1's sources become real tools (DMS, CRM, registry and screening APIs). Agent 5 calls your mail, chat and task-inbox APIs.
 - **Guardrails in code.** Keep the guardrails enforced in code even if routing later moves to an LLM.
 - **Configuration.** Version the prompts, policy rules, scoring guide and dependency map as configuration, and record the version used for each decision in the audit log.
+
+# Production backend
+
+All data is dummy data. Commands are for Windows (Git Bash or PowerShell); on macOS/Linux use `venv/bin/python`.
+
+## Phase 1: database and dummy data
+
+```bash
+python -m venv venv
+venv/Scripts/python -m pip install -r requirements.txt -r backend/requirements.txt
+
+docker compose up -d --wait db                         # Postgres 16 on localhost:5432 (kyc/kyc)
+cd backend
+../venv/Scripts/python -m alembic upgrade head         # create the schema
+../venv/Scripts/python -m kyc.seed --clients 25 --reset   # users, reference data, clients, documents, cases
+../venv/Scripts/python -m pytest -q                    # generator scenarios + database four-eyes tests
+```
+
+Set `KYC_DATABASE_URL` (or copy `.env.example` to `.env`) to point somewhere else.
+
+**What the seed creates**
+- 5 users, all with password `kyc-demo-123`: makers `priya.nair`, `aaron.koh`; checkers `daniel.tan`, `siti.rahman`; admin/team lead `grace.lim`.
+- Reference data from `data/sample_case.json`: checklist `SG_CORP_MED_v4`, questionnaire `CRA_CORP_v7`, rating bands, policy rules, the dependency map, and a country-risk list.
+- The Halcyon Marine sample (case `RA-2026-0412`) plus N generated clients with directors, shareholders, UBOs and 7–8 documents each. The document files are written to `backend/data/generated/<CIF>/` (git-ignored), in the same text layout the agents parse.
+- One open renewal case per client (status `NEW`) with an unprocessed `RENEWAL_DUE` event, ready for the worker in Phase 2.
+- Scenarios rotate through `happy`, `stale_fs`, `missing_id`, `screening_hit`, `obscured_register`, `ubo_mismatch` and `near_due`. `--seed` makes the data repeatable, and `--as-of` sets the reference date.
+
+**Data model** ([backend/kyc/db/models.py](backend/kyc/db/models.py))
+
+| Group | Tables |
+|---|---|
+| Reference | `users`, `clients`, `related_parties`, `checklists`, `checklist_items`, `questionnaires`, `questions`, `rating_bands`, `country_risk`, `policy_rules`, `doc_item_fields`, `field_questions` |
+| Evidence | `documents`, `extracted_fields`, `screening_hits`, `dispositions` |
+| Workflow | `cases`, `case_events` (append-only, also the master's inbox), `master_decisions` (append-only), `agent_tasks` (queue claimed with `FOR UPDATE SKIP LOCKED`) |
+| Output | `answers` (versioned), `review_findings`, `checker_returns`, `ratings` (versioned), `notifications` |
+
+Four-eyes control is enforced in the database as well as by guardrail G5. A CHECK stops a case's maker and checker being the same user. Triggers require the right roles and allow only the case's assigned checker to approve a final rating.
+
+## Next phases
+2. A database-backed engine and worker, plus the FastAPI API, reusing `orchestrator/master.py` unchanged. The prototype agents are written around the Halcyon case (for example, Q4 expects both FY2024 and FY2025 turnover), so they will be generalised for the generated clients.
+3. React UI: dashboard, live flow graph, maker workbench, checker review, audit replay.
+4. JWT login and roles, the full stack in Docker Compose, hardening.
