@@ -8,3 +8,4 @@ node_modules/
 dist/
 backend/data/generated/
 .pytest_cache/
+backend/data/uploads/

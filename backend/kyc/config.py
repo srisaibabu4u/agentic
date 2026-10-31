@@ -23,4 +23,7 @@ _load_dotenv()
 
 DATABASE_URL = os.getenv("KYC_DATABASE_URL", "postgresql+psycopg://kyc:kyc@localhost:5432/kyc")
 GENERATED_DIR = Path(os.getenv("KYC_GENERATED_DIR", BACKEND_DIR / "data" / "generated"))
+UPLOADS_DIR = Path(os.getenv("KYC_UPLOADS_DIR", BACKEND_DIR / "data" / "uploads"))
+# Business clock for case times shown to people and passed to the agents (Singapore, no DST).
+BUSINESS_TZ_HOURS = int(os.getenv("KYC_TZ_HOURS", "8"))
 PROTOTYPE_CASE = REPO_ROOT / "data" / "sample_case.json"

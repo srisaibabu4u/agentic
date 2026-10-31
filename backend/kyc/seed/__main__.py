@@ -49,6 +49,8 @@ def load_reference(db: Session, proto: dict) -> tuple[m.Checklist, m.Questionnai
     db.flush()
     for code, lvl in country_risk(proto).items():
         db.add(m.CountryRisk(code=code, name=COUNTRIES.get(code, (code,))[0], risk_level=lvl))
+    for ssic, (label, lvl) in q["industry_risk"].items():
+        db.add(m.IndustryRisk(ssic_code=ssic, label=label, risk_level=lvl))
     for code, txt in q["policy"].items():
         db.add(m.PolicyRule(code=code, text=txt))
     dep = proto["dependency_map"]

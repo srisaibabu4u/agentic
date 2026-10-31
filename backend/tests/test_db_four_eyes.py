@@ -1,31 +1,12 @@
 """Four-eyes control enforced by Postgres itself. Needs the seeded database
-(docker compose up -d db; alembic upgrade head; python -m kyc.seed --reset); skipped otherwise.
-Every test runs in a transaction that is rolled back."""
+(see the db fixture in conftest.py); every test is rolled back."""
 from __future__ import annotations
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.exc import DBAPIError, OperationalError
+from sqlalchemy.exc import DBAPIError
 
-from kyc.db import engine
 from kyc.db import models as m
-from kyc.db.session import SessionLocal
-
-
-@pytest.fixture
-def db():
-    try:
-        conn = engine.connect()
-    except OperationalError:
-        pytest.skip("Postgres not running")
-    tx = conn.begin()
-    session = SessionLocal(bind=conn, join_transaction_mode="create_savepoint")
-    if not session.scalar(select(m.Case).where(m.Case.case_ref == "RA-2026-0412")):
-        pytest.skip("database not seeded")
-    yield session
-    session.close()
-    tx.rollback()
-    conn.close()
 
 
 def user(db, username):
