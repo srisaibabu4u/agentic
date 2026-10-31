@@ -20,7 +20,9 @@ export default function LoginPage() {
     try {
       await login(username.trim(), password)
     } catch (err) {
-      setError(err instanceof ApiError && err.status === 401 ? 'Wrong username or password.' : `Could not sign in: ${String(err)}`)
+      setError(err instanceof ApiError && err.status === 401 ? 'Wrong username or password.'
+        : err instanceof ApiError && err.status === 429 ? err.details.join(' ') // locked after repeated failures
+          : `Could not sign in: ${String(err)}`)
       setBusy(false)
     }
   }

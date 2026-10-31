@@ -264,7 +264,7 @@ End-to-end tests drive the real UI in your installed Chrome against the real API
 cd frontend && npm run e2e     # Halcyon from first maker review to approval, then replay (~1.5 min)
 ```
 
-## Phase 4: login, one-command stack, hardening (in progress)
+## Phase 4: login, one-command stack, hardening
 
 **Run everything with Docker** (Docker Desktop or Docker Engine with Compose v2):
 
@@ -304,3 +304,21 @@ request, so deactivating an account signs it out immediately.
 | `KYC_JWT_SECRET` | random per start (warning) | Token signing key; set a long random value outside development |
 | `KYC_TOKEN_HOURS` | `8` | Session length |
 | `KYC_COOKIE_SECURE` | `true` | HTTPS-only cookie; browsers accept it on `http://localhost` |
+| `KYC_ENV` | `development` | `production` refuses to start without a strong secret, and logs JSON |
+| `KYC_LOGIN_MAX_FAILURES` / `KYC_LOGIN_WINDOW_MINUTES` | `5` / `15` | Failed sign-ins per username before it is locked for the window |
+| `KYC_LOG_FORMAT` / `KYC_LOG_LEVEL` | `text` (`json` in production) / `INFO` | Log output |
+
+**Hardening.**
+- Failed sign-ins are stored in `login_failures`, so the per-username limit holds across API replicas.
+  A locked account gets `429` with `Retry-After`, even with the right password.
+- Every request gets an `X-Request-ID` (the caller's, if well-formed), returned in the response and attached to
+  every log line, plus one access line per request: method, path, status, duration and user.
+- In production, logs are JSON lines.
+- nginx sends a strict Content Security Policy, `X-Frame-Options: DENY`, `nosniff`, `no-referrer` and a Permissions-Policy.
+- The containers run as a non-root user, and the API is not published outside the Compose network.
+
+**CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every push and pull request:
+- **`backend`:** migrations, `alembic check`, seed, prototype tests and backend tests against Postgres.
+- **`frontend`:** lint, type check and build.
+- **`e2e`:** Playwright in Chrome.
+- **`docker`:** builds and starts the whole stack, then smoke-tests it through nginx.

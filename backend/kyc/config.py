@@ -47,3 +47,7 @@ def check() -> None:
         problems.append("KYC_JWT_SECRET must be set to a random value of at least 32 characters")
     if problems:
         raise SystemExit("Refusing to start (KYC_ENV=production): " + "; ".join(problems))
+
+# ---- login attempt limit (per username, shared by all API replicas through the login_failures table)
+LOGIN_MAX_FAILURES = int(os.getenv("KYC_LOGIN_MAX_FAILURES", "5"))
+LOGIN_WINDOW_MINUTES = float(os.getenv("KYC_LOGIN_WINDOW_MINUTES", "15"))

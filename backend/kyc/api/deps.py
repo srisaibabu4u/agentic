@@ -32,7 +32,8 @@ def get_clock(request: Request) -> Clock:
     return request.app.state.clock
 
 
-def current_user(authorization: str | None = Header(default=None, description="Bearer <token> (API clients)"),
+def current_user(request: Request,
+                 authorization: str | None = Header(default=None, description="Bearer <token> (API clients)"),
                  session: str | None = Cookie(default=None, alias=COOKIE, include_in_schema=False),
                  db: Session = Depends(get_db)) -> m.User:
     token = authorization[7:] if authorization and authorization.lower().startswith("bearer ") else session
@@ -41,4 +42,5 @@ def current_user(authorization: str | None = Header(default=None, description="B
     user = db.scalar(select(m.User).where(m.User.username == username_from_token(token)))
     if user is None or not user.is_active:  # deactivated after the token was issued
         raise HTTPException(401, "Account disabled; sign in again", headers={"WWW-Authenticate": "Bearer"})
+    request.state.username = user.username  # for the access log line
     return user

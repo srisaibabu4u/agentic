@@ -494,3 +494,15 @@ class Notification(Base):
     message_id: Mapped[str | None] = mapped_column(String(64))
     sent_at: Mapped[datetime] = _now()
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ===================================================================== security
+class LoginFailure(Base):
+    """Failed sign-ins, for the per-username attempt limit (shared by every API replica) and as an audit trail."""
+    __tablename__ = "login_failures"
+    __table_args__ = (Index("ix_login_failures_user_time", "username", "at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    username: Mapped[str] = mapped_column(String(64))
+    client_ip: Mapped[str | None] = mapped_column(String(64))
+    at: Mapped[datetime] = _now()

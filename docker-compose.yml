@@ -4,7 +4,7 @@
 x-backend: &backend
   build: { context: ., dockerfile: backend/Dockerfile }
   image: kyc-backend
-  environment:
+  environment: &backend-env
     KYC_DATABASE_URL: postgresql+psycopg://kyc:kyc@db:5432/kyc
     KYC_ENV: production            # the API refuses to start without a strong KYC_JWT_SECRET
     KYC_JWT_SECRET: ${KYC_JWT_SECRET:-}
@@ -39,6 +39,9 @@ services:
 
   api:
     <<: *backend
+    environment:
+      <<: *backend-env
+      FORWARDED_ALLOW_IPS: "*"     # trust X-Forwarded-For from nginx; the API is reachable only inside this network
     depends_on:
       migrate: { condition: service_completed_successfully }
     healthcheck:
