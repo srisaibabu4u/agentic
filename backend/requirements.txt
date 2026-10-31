@@ -4,3 +4,6 @@ psycopg[binary]>=3.2
 bcrypt>=4.2
 faker>=33.0
 pytest>=8.3
+fastapi>=0.115
+uvicorn[standard]>=0.32
+httpx>=0.28
