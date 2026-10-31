@@ -1,14 +1,27 @@
-# Phase 1: database only. The api, worker and ui services are added in later phases.
+# The whole stack:      docker compose up -d --build --wait    then open http://localhost:8080
+# Database only (dev):  docker compose up -d --wait db
+# The API needs KYC_JWT_SECRET in .env (see README). Ports can be moved with KYC_DB_PORT / KYC_UI_PORT.
+x-backend: &backend
+  build: { context: ., dockerfile: backend/Dockerfile }
+  image: kyc-backend
+  environment: &backend-env
+    KYC_DATABASE_URL: postgresql+psycopg://kyc:kyc@db:5432/kyc
+    KYC_ENV: production            # the API refuses to start without a strong KYC_JWT_SECRET
+    KYC_JWT_SECRET: ${KYC_JWT_SECRET:-}
+    KYC_COOKIE_SECURE: ${KYC_COOKIE_SECURE:-true}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  volumes:
+    - kyc-files:/app/backend/data
+
 services:
   db:
     image: postgres:16-alpine
-    container_name: kyc-db
     environment:
       POSTGRES_USER: kyc
       POSTGRES_PASSWORD: kyc          # dummy local credential
       POSTGRES_DB: kyc
     ports:
-      - "5432:5432"
+      - "${KYC_DB_PORT:-5432}:5432"
     volumes:
       - kyc-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -17,5 +30,48 @@ services:
       timeout: 3s
       retries: 10
 
+  migrate:  # one-off: schema up to date, dummy data on first start only
+    <<: *backend
+    command: ["sh", "-c", "alembic upgrade head && python -m kyc.seed --clients ${KYC_SEED_CLIENTS:-25} --if-empty"]
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      FORWARDED_ALLOW_IPS: "*"     # trust X-Forwarded-For from nginx; the API is reachable only inside this network
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "kyc.worker"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  ui:
+    build: frontend
+    image: kyc-ui
+    ports:
+      - "${KYC_UI_PORT:-8080}:8080"
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]   # not localhost: that is ::1 in Alpine, nginx listens on IPv4
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
 volumes:
   kyc-pgdata:
+  kyc-files:

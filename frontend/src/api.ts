@@ -1,5 +1,5 @@
-// Typed client for the FastAPI backend (backend/kyc/api). Every call sends the acting
-// user in X-User; that header is replaced by a JWT in Phase 4.
+// Typed client for the FastAPI backend (backend/kyc/api). The session is an httpOnly cookie set by
+// POST /auth/login, which the browser sends with every same-origin request; scripts never see the token.
 
 export type Role = 'maker' | 'checker' | 'admin'
 export type CaseStatus =
@@ -110,16 +110,14 @@ export class ApiError extends Error {
   }
 }
 
-let actingUser: string | null = null
-export function setActingUser(username: string | null) {
-  actingUser = username
-}
+/** Fired when the API says the session is missing or over; the auth provider shows the login page. */
+export const SIGNED_OUT = 'kyc:signed-out'
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
-  if (actingUser) headers.set('X-User', actingUser)
   if (init.body) headers.set('Content-Type', 'application/json')
   const res = await fetch(`/api${path}`, { ...init, headers })
+  if (res.status === 401 && path !== '/auth/login') window.dispatchEvent(new Event(SIGNED_OUT))
   if (!res.ok) {
     let details = [res.statusText]
     try {
@@ -132,7 +130,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch { /* not JSON */ }
     throw new ApiError(res.status, details)
   }
-  return res.json() as Promise<T>
+  return (res.status === 204 ? undefined : res.json()) as Promise<T>
 }
 
 export const post = <T>(path: string, body: unknown) => api<T>(path, { method: 'POST', body: JSON.stringify(body) })

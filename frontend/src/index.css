@@ -308,3 +308,12 @@ dialog.doc-viewer::backdrop { background: rgb(0 0 0 / 45%); }
 .replay-state { padding: 0 16px 12px; display: flex; flex-direction: column; gap: 4px; }
 .nowrap { white-space: nowrap; }
 .tl-item.future { opacity: .35; }
+
+/* ---------- login ---------- */
+.login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.login-card { width: min(380px, 100%); padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.login-card label { display: flex; flex-direction: column; gap: 4px; font-weight: 550; }
+.login-card input { padding: 8px 10px; }
+.login-card button.primary { padding: 9px; }
+.login-brand { font-size: 15px; }
+.login-card details p { margin: 6px 0; }

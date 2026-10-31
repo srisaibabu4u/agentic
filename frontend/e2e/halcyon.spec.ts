@@ -6,21 +6,42 @@ import { expect, test, type Page } from '@playwright/test'
 const CASE = '/cases/RA-2026-0412'
 const sample = (f: string) => path.resolve(import.meta.dirname, '../../samples', f)
 
+const PASSWORD = 'kyc-demo-123' // seeded dummy accounts
+
+/** Sign out (if signed in) and sign in as this user through the login form. */
 async function actAs(page: Page, username: string) {
-  await page.getByLabel('Acting user').selectOption(username)
+  const signOut = page.getByRole('button', { name: 'Sign out' })
+  if (await signOut.isVisible()) await signOut.click()
+  await page.getByLabel('Username').fill(username)
+  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(signOut).toBeVisible()
 }
 const status = (page: Page) => page.locator('.case-head')
 /** Screenshot of the action panel, kept with the test output (test-results/, git-ignored). */
 const snap = (page: Page, name: string) =>
   page.locator('.action-card').screenshot({ path: test.info().outputPath(`${name}.png`) })
 
+test('sign-in is required, and a wrong password is refused', async ({ page }) => {
+  await page.goto(CASE)
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  await page.getByLabel('Username').fill('priya.nair')
+  await page.getByLabel('Password').fill('not-the-password')
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page.getByRole('alert')).toHaveText('Wrong username or password.')
+  await actAs(page, 'priya.nair')
+  await expect(page.getByRole('heading', { name: 'Halcyon Marine Logistics Pte Ltd' })).toBeVisible()
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+})
+
 test('Halcyon from first maker review to approval, through the UI', async ({ page }) => {
   await page.goto(CASE)
+  await actAs(page, 'aaron.koh')
   // live updates: with the stream connected the page stops polling, so every later step relies on it
   await expect(status(page).getByText('● Live')).toBeVisible()
 
   // someone else's turn: no form, just who it is waiting on
-  await actAs(page, 'aaron.koh')
   await expect(page.locator('.notice', { hasText: 'Waiting on Priya Nair' })).toContainText('Only they can act')
   await expect(page.getByRole('heading', { name: /Your turn/ })).toHaveCount(0)
 

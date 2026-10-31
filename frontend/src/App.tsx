@@ -1,25 +1,23 @@
 import { Link, Route, Routes } from 'react-router-dom'
 import { useUser } from './userContext'
-import Dashboard from './pages/Dashboard'
 import CasePage from './pages/CasePage'
+import Dashboard from './pages/Dashboard'
+import LoginPage from './pages/LoginPage'
 
-function UserSwitcher() {
-  const { user, users, setUser } = useUser()
+function UserMenu() {
+  const { user, logout } = useUser()
+  if (!user) return null
   return (
-    <label className="row small" title="Stand-in for login until Phase 4">
-      <span className="muted">Acting as</span>
-      <select value={user?.username ?? ''} onChange={(e) => setUser(e.target.value)} aria-label="Acting user">
-        {users.map((u) => (
-          <option key={u.username} value={u.username}>
-            {u.full_name} · {u.title}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="row small">
+      <span><strong>{user.full_name}</strong> <span className="muted">· {user.title ?? user.role}</span></span>
+      <button onClick={() => logout()}>Sign out</button>
+    </div>
   )
 }
 
 export default function App() {
+  const { user } = useUser()
+  if (!user) return <LoginPage />
   return (
     <>
       <header className="app-header">
@@ -28,7 +26,7 @@ export default function App() {
           KYC Renewals <small>client risk assessment · dummy data</small>
         </Link>
         <span className="header-spacer" />
-        <UserSwitcher />
+        <UserMenu />
       </header>
       <main className="page">
         <Routes>

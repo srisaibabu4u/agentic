@@ -12,6 +12,7 @@ import argparse
 import logging
 import time
 
+from . import logs
 from .db import SessionLocal
 from .services import worker
 
@@ -26,7 +27,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--live", default="", help="comma list of A1..A5, or 'all', to call Claude for those agents")
     ap.add_argument("--model", default=None, help="Claude model id (default: env KYC_MODEL or the llm.py default)")
     args = ap.parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logs.setup("worker")
 
     live = frozenset(IDS.values()) if args.live == "all" else frozenset(
         IDS[x.strip().upper()] for x in args.live.split(",") if x.strip())

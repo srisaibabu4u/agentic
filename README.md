@@ -216,7 +216,8 @@ To start over, reseed: `python -m kyc.seed --clients 25 --reset`.
 cd backend
 ../venv/Scripts/python -m uvicorn kyc.api.app:app --reload     # terminal 1
 ../venv/Scripts/python -m kyc.worker                           # terminal 2
-curl -H "X-User: priya.nair" "http://localhost:8000/cases?waiting_on_me=true"
+TOKEN=$(curl -s -X POST localhost:8000/auth/login -H "Content-Type: application/json"   -d '{"username":"priya.nair","password":"kyc-demo-123"}' | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/cases?waiting_on_me=true"
 ```
 
 | Endpoint | Who | What |
@@ -231,7 +232,7 @@ curl -H "X-User: priya.nair" "http://localhost:8000/cases?waiting_on_me=true"
 | `POST /cases/{ref}/checker/return` | the case's checker | Return questions with comments |
 | `POST /cases/{ref}/checker/approve` | the case's checker | Approve with a final rating |
 
-Until JWT login (Phase 4), the acting user is the `X-User` header. Actions are accepted only from the case's assigned
+Sign in with `POST /auth/login` (see Phase 4). Actions are accepted only from the case's assigned
 maker or checker (otherwise `403`) and only while the case waits on that role (otherwise `409`). They append an event
 and return `202`; the worker applies them.
 
@@ -245,7 +246,7 @@ cd backend && ../venv/Scripts/python -m kyc.worker                          # te
 cd frontend && npm install && npm run dev                                   # terminal 3: http://localhost:5173
 ```
 
-Pick who you are in **Acting as** (a stand-in for login until Phase 4). Then:
+Sign in as one of the seeded users (password `kyc-demo-123`; the login page lists them). Then:
 
 - **Dashboard:** tiles for *waiting on me*, *agents working*, *due within 5 business days* and *closed*, which double as filters; search; sortable case table.
 - **Case page:**
@@ -263,5 +264,61 @@ End-to-end tests drive the real UI in your installed Chrome against the real API
 cd frontend && npm run e2e     # Halcyon from first maker review to approval, then replay (~1.5 min)
 ```
 
-## Next phases
-4. JWT login and roles, the full stack in Docker Compose, hardening.
+## Phase 4: login, one-command stack, hardening
+
+**Run everything with Docker** (Docker Desktop or Docker Engine with Compose v2):
+
+```bash
+python -c "import secrets; print('KYC_JWT_SECRET=' + secrets.token_urlsafe(48))" > .env
+docker compose up -d --build --wait
+# open http://localhost:8080 and sign in, e.g. priya.nair / kyc-demo-123
+```
+
+| Service | What it does |
+|---|---|
+| `db` | Postgres 16 (volume `kyc-pgdata`) |
+| `migrate` | Runs once: `alembic upgrade head`, then seeds dummy data if the database is empty |
+| `api` | FastAPI on the internal network (not published); refuses to start without a strong `KYC_JWT_SECRET` |
+| `worker` | Runs master decisions and agent tasks; scale with `docker compose up -d --scale worker=3` |
+| `ui` | nginx serving the built UI on port 8080, forwarding `/api` to `api` (unbuffered, for live updates), with security headers |
+
+`docker compose logs -f worker` follows the workflow; `docker compose down` stops it (add `-v` to delete the data).
+For local development keep using `docker compose up -d --wait db` and run the API, worker and UI from source as above.
+
+To run the end-to-end tests against a throwaway copy of the stack on other ports:
+
+```bash
+KYC_DB_PORT=55432 KYC_UI_PORT=8081 docker compose -p kyc-e2e up -d --build --wait
+(cd frontend && E2E_BASE_URL=http://localhost:8081 npm run e2e)
+docker compose -p kyc-e2e down -v
+```
+
+**Login.** `POST /auth/login` with a username and password (bcrypt-hashed in `users`) returns a signed JWT
+(HS256, 8 hours). Browsers get it as an httpOnly, `SameSite=Strict` session cookie that scripts cannot read
+and other sites cannot make the browser send; API clients send it as `Authorization: Bearer <token>`.
+`POST /auth/logout` ends the session. The user's role and active flag are read from the database on every
+request, so deactivating an account signs it out immediately.
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `KYC_JWT_SECRET` | random per start (warning) | Token signing key; set a long random value outside development |
+| `KYC_TOKEN_HOURS` | `8` | Session length |
+| `KYC_COOKIE_SECURE` | `true` | HTTPS-only cookie; browsers accept it on `http://localhost` |
+| `KYC_ENV` | `development` | `production` refuses to start without a strong secret, and logs JSON |
+| `KYC_LOGIN_MAX_FAILURES` / `KYC_LOGIN_WINDOW_MINUTES` | `5` / `15` | Failed sign-ins per username before it is locked for the window |
+| `KYC_LOG_FORMAT` / `KYC_LOG_LEVEL` | `text` (`json` in production) / `INFO` | Log output |
+
+**Hardening.**
+- Failed sign-ins are stored in `login_failures`, so the per-username limit holds across API replicas.
+  A locked account gets `429` with `Retry-After`, even with the right password.
+- Every request gets an `X-Request-ID` (the caller's, if well-formed), returned in the response and attached to
+  every log line, plus one access line per request: method, path, status, duration and user.
+- In production, logs are JSON lines.
+- nginx sends a strict Content Security Policy, `X-Frame-Options: DENY`, `nosniff`, `no-referrer` and a Permissions-Policy.
+- The containers run as a non-root user, and the API is not published outside the Compose network.
+
+**CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every push and pull request:
+- **`backend`:** migrations, `alembic check`, seed, prototype tests and backend tests against Postgres.
+- **`frontend`:** lint, type check and build.
+- **`e2e`:** Playwright in Chrome.
+- **`docker`:** builds and starts the whole stack, then smoke-tests it through nginx.

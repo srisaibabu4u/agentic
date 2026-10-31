@@ -1,19 +1,20 @@
-"""Request dependencies: database session, acting user, business clock.
+"""Request dependencies: database session, signed-in user, business clock.
 
-The session factory and clock live on app.state so tests can swap them.
-Until JWT login (Phase 4), the acting user comes from the X-User header.
+The session factory and clock live on app.state so tests can swap them. The user comes from the session
+token: the httpOnly cookie set by /auth/login, or an "Authorization: Bearer" header for API clients.
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Callable, Iterator
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Cookie, Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import models as m
 from ..services import store
+from .security import COOKIE, username_from_token
 
 Clock = Callable[[Session, m.Case], datetime]
 
@@ -31,11 +32,15 @@ def get_clock(request: Request) -> Clock:
     return request.app.state.clock
 
 
-def current_user(x_user: str | None = Header(default=None, description="Acting username (until JWT login)"),
+def current_user(request: Request,
+                 authorization: str | None = Header(default=None, description="Bearer <token> (API clients)"),
+                 session: str | None = Cookie(default=None, alias=COOKIE, include_in_schema=False),
                  db: Session = Depends(get_db)) -> m.User:
-    if not x_user:
-        raise HTTPException(401, "Missing X-User header")
-    user = db.scalar(select(m.User).where(m.User.username == x_user, m.User.is_active))
-    if user is None:
-        raise HTTPException(401, f"Unknown or inactive user {x_user!r}")
+    token = authorization[7:] if authorization and authorization.lower().startswith("bearer ") else session
+    if not token:
+        raise HTTPException(401, "Not signed in", headers={"WWW-Authenticate": "Bearer"})
+    user = db.scalar(select(m.User).where(m.User.username == username_from_token(token)))
+    if user is None or not user.is_active:  # deactivated after the token was issued
+        raise HTTPException(401, "Account disabled; sign in again", headers={"WWW-Authenticate": "Bearer"})
+    request.state.username = user.username  # for the access log line
     return user

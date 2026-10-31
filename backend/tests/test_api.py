@@ -6,6 +6,7 @@ import contextlib
 import io
 import json
 from datetime import timedelta
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,6 +15,7 @@ from sqlalchemy import func, select
 from orchestrator.engine import Engine
 
 from kyc.api.app import create_app
+from kyc.api.security import issue_token
 from kyc.db import models as m
 from kyc.seed.reference import load_prototype
 from kyc.services import store, worker
@@ -26,7 +28,8 @@ MAKER, CHECKER, OTHER_MAKER = "priya.nair", "daniel.tan", "aaron.koh"
 
 
 def as_(user):
-    return {"X-User": user}
+    """Headers for a signed-in user: a real session token, signed like /auth/login does (see test_auth.py)."""
+    return {"Authorization": f"Bearer {issue_token(SimpleNamespace(username=user))[0]}"}
 
 
 @pytest.fixture
@@ -56,9 +59,8 @@ def script(role, i):
 # ============================================================== who and when
 def test_requires_a_known_user(client):
     assert client.get("/cases").status_code == 401
-    assert client.get("/cases", headers=as_("nobody")).status_code == 401
+    assert client.get("/cases", headers=as_("nobody")).status_code == 401  # validly signed, but no such user
     assert client.get("/me", headers=as_(CHECKER)).json()["role"] == "checker"
-    assert {u["role"] for u in client.get("/users").json()} == {"maker", "checker", "admin"}
 
 
 def test_case_list_filters(client, db):
