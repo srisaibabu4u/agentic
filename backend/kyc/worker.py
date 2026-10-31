@@ -39,8 +39,12 @@ def main(argv: list[str] | None = None) -> None:
     log.info("worker %s started%s", name, f", live agents: {sorted(live)}" if live else "")
     done = 0
     while True:
-        with SessionLocal() as db:
-            busy = worker.step(db, name=name, llm=llm, live_agents=live)
+        try:
+            with SessionLocal() as db:
+                busy = worker.step(db, name=name, llm=llm, live_agents=live)
+        except Exception:  # never die silently: log it, the session rolls back, try again after a pause
+            log.exception("step failed; continuing")
+            busy = False
         if busy:
             done += 1
             continue

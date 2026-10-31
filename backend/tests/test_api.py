@@ -58,6 +58,7 @@ def test_requires_a_known_user(client):
     assert client.get("/cases").status_code == 401
     assert client.get("/cases", headers=as_("nobody")).status_code == 401
     assert client.get("/me", headers=as_(CHECKER)).json()["role"] == "checker"
+    assert {u["role"] for u in client.get("/users").json()} == {"maker", "checker", "admin"}
 
 
 def test_case_list_filters(client, db):

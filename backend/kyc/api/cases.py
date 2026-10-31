@@ -118,9 +118,11 @@ def case_detail(ref: str, db: Session = Depends(get_db), clock: Clock = Depends(
                    "segment": c.segment, "principal_activity": c.principal_activity, "ssic_code": c.ssic_code,
                    "prior_rating": c.prior_rating, "prior_assessment_date": c.prior_assessment_date,
                    "parties": [{"id": p.id, "parent_id": p.parent_id, "type": p.party_type, "name": p.name,
-                                "nationality": p.nationality, "director": p.is_director, "shareholder": p.is_shareholder,
+                                "nationality": p.nationality, "date_of_birth": p.date_of_birth,
+                                "director": p.is_director, "shareholder": p.is_shareholder,
                                 "ubo": p.is_ubo, "ownership_pct": p.ownership_pct} for p in c.parties]},
         "documents": documents, "missing_documents": manifest.get("missing", []),
+        "upload_items": _upload_items(db, r),
         "fields": fields, "open_items": r.open_items,
         "answers": answers, "suggestions": list(suggestions.values()),
         "rating": store.rating_dict(ratings[-1]) if ratings else None,
@@ -144,6 +146,16 @@ def case_detail(ref: str, db: Session = Depends(get_db), clock: Clock = Depends(
                            "template": n.template, "subject": n.subject, "body": n.body, "sent_at": n.sent_at}
                           for n in db.scalars(select(m.Notification).where(m.Notification.case_id == r.id).order_by(m.Notification.id))],
     }
+
+
+def _upload_items(db: Session, r: m.Case) -> list[dict]:
+    """What a maker may upload: the checklist items, plus the extra evidence types the dependency map knows."""
+    cfg = store.load_config(db, r)
+    items = [{"item": i["item"], "label": i["label"]} for i in cfg["checklist"]["items"]]
+    known = {i["item"] for i in items}
+    items += [{"item": k, "label": k.replace("_", " ").capitalize()}
+              for k in cfg["dependency_map"]["doc_item_to_fields"] if k not in known]
+    return items
 
 
 def _task(t: m.AgentTask) -> dict:
