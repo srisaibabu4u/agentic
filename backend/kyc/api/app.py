@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
 from ..db import models as m
-from . import actions, cases
+from . import actions, cases, workflow
 from .cases import user_ref
 from .deps import current_user, get_db, wall_clock
 
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
     app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
     app.include_router(cases.router)
     app.include_router(actions.router)
+    app.include_router(workflow.router)
 
     @app.get("/health", tags=["meta"])
     def health(db: Session = Depends(get_db)) -> dict:

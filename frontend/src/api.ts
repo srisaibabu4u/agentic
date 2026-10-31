@@ -135,3 +135,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const post = <T>(path: string, body: unknown) => api<T>(path, { method: 'POST', body: JSON.stringify(body) })
+
+export interface WorkflowNode { id: CaseStatus; label: string; actor: 'scheduler' | 'agents' | 'maker' | 'checker' | 'done' }
+export interface WorkflowEdge { id: string; source: CaseStatus; target: CaseStatus; rules: string[]; description: string }
+export interface Workflow { nodes: WorkflowNode[]; edges: WorkflowEdge[] }

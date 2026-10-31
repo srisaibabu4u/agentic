@@ -154,3 +154,18 @@ def test_agent_crash_is_retried_by_the_master(db, monkeypatch):
     assert "retry 1" in retry.rationale
     db.refresh(row)
     assert row.waiting_on == "maker"  # the case carried on normally after the retry
+
+
+def test_every_status_change_is_on_the_workflow_map(db):
+    """The UI draws kyc/api/workflow.py; every route the master takes must be on it, with a matching rule."""
+    from kyc.api.workflow import EDGES
+    edges = {(s, t): set(rules) for s, t, rules, _ in EDGES}
+    drive(db, PROTO["human_script"])  # Halcyon to CLOSED, every generated case to its first stop
+    seen, problems = set(), set()
+    for d in db.scalars(select(m.MasterDecision).where(m.MasterDecision.prev_status != m.MasterDecision.new_status)):
+        key = (d.prev_status, d.new_status)
+        if key not in edges or not edges[key] & set(d.rules_matched):
+            problems.add(f"{key[0]} -> {key[1]} via {d.rules_matched}")
+        seen.add(key)
+    assert not problems, "not on the workflow map: " + "; ".join(sorted(problems))
+    assert len(seen) >= 10, seen
