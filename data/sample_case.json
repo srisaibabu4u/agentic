@@ -106,6 +106,13 @@
       {"q_id": "Q8", "text": "Changes since last review"}
     ],
     "country_risk": {"SG": 1, "MY": 2, "ID": 3, "AE": 3, "BVI": 4},
+    "industry_risk": {
+      "52291": ["Logistics", 2], "46521": ["Electronics wholesale", 2], "62011": ["Software and IT services", 1],
+      "46610": ["Petroleum products trading", 3], "41002": ["Construction", 3],
+      "56111": ["Food and beverage (cash-intensive)", 3], "46495": ["Precious metals and jewellery", 4],
+      "22220": ["Plastics manufacturing", 1], "46442": ["Medical device distribution", 2],
+      "46100": ["Agricultural commodity trading", 3]
+    },
     "rating_bands": [{"band": "LOW", "max": 13}, {"band": "MEDIUM", "max": 24}, {"band": "HIGH", "max": 40}],
     "policy": {
       "7.2.4": "A screening disposition must state the list name and the record ID.",
