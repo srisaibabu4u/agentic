@@ -1,0 +1,82 @@
+// The Halcyon renewal driven entirely through the UI: maker workbench, checker return,
+// maker uploads the ownership evidence, checker approves. The worker moves the case in between.
+import path from 'node:path'
+import { expect, test, type Page } from '@playwright/test'
+
+const CASE = '/cases/RA-2026-0412'
+const sample = (f: string) => path.resolve(import.meta.dirname, '../../samples', f)
+
+async function actAs(page: Page, username: string) {
+  await page.getByLabel('Acting user').selectOption(username)
+}
+const status = (page: Page) => page.locator('.case-head')
+/** Screenshot of the action panel, kept with the test output (test-results/, git-ignored). */
+const snap = (page: Page, name: string) =>
+  page.locator('.action-card').screenshot({ path: test.info().outputPath(`${name}.png`) })
+
+test('Halcyon from first maker review to approval, through the UI', async ({ page }) => {
+  await page.goto(CASE)
+
+  // someone else's turn: no form, just who it is waiting on
+  await actAs(page, 'aaron.koh')
+  await expect(page.locator('.notice', { hasText: 'Waiting on Priya Nair' })).toContainText('Only they can act')
+  await expect(page.getByRole('heading', { name: /Your turn/ })).toHaveCount(0)
+
+  // ---- maker: confirm the obscured shareholding, dispose of the screening hit, upload FY2025 FS
+  await actAs(page, 'priya.nair')
+  await expect(page.getByRole('heading', { name: 'Your turn: maker workbench' })).toBeVisible()
+  await expect(page.getByLabel('pct')).toHaveValue('45')
+  await page.getByPlaceholder(/Evidence, e.g./).fill('Confirmed against client-signed register dated 2026-02-10')
+  await page.getByRole('button', { name: 'Use these differences as the rationale' }).click()
+  await expect(page.getByPlaceholder(/Rationale/)).toHaveValue('DOB 1971-04-02 vs listed 1958-09-17; nationality IN vs listed MY.')
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await page.getByLabel('Type / title').fill('Audited FS FY2025')
+  await page.getByLabel('Document date').fill('2026-04-28')
+  await page.getByLabel('Financial year end').fill('2025-12-31')
+  await page.getByLabel('Text file').setInputFiles(sample('DOC-08_audited_fs_fy2025.txt'))
+  await expect(page.getByText('Will send 1 upload, 1 confirmation, 1 disposition.')).toBeVisible()
+  await snap(page, 'maker-workbench')
+  await page.getByRole('button', { name: 'Submit to the master' }).click()
+  await expect(page.getByText('Submitted. The agents are working on it')).toBeVisible()
+  await expect(status(page).getByText('Waiting on Daniel Tan')).toBeVisible()
+
+  // ---- checker: sees the maker's inputs, returns Q7
+  await actAs(page, 'daniel.tan')
+  await expect(page.getByRole('heading', { name: 'Your turn: checker review' })).toBeVisible()
+  await expect(page.getByText(/false positive/i).first()).toBeVisible()
+  const q7 = page.locator('.review-answers li', { hasText: 'Source of wealth of UBOs' })
+  await q7.getByLabel('Return').check()
+  await q7.getByRole('textbox').fill('Seacrest (BVI) holds 45%. Identify its ultimate owners and their source of wealth.')
+  await snap(page, 'checker-return')
+  await page.getByRole('button', { name: 'Return 1 question' }).click()
+  await expect(status(page).getByText('Waiting on Priya Nair')).toBeVisible()
+
+  // ---- maker: the suggested redraft is shown; upload the register of members and the SoW declaration
+  await actAs(page, 'priya.nair')
+  await expect(page.getByText('Q7 returned')).toBeVisible()
+  await expect(page.getByText('Suggested redraft:')).toBeVisible()
+  for (const [item, title, file] of [
+    ['ubo_corporate_register', 'Seacrest register of members', 'DOC-09_seacrest_register.txt'],
+    ['sow_declaration', 'SoW declaration + sale deed', 'DOC-10_sow_declaration.txt'],
+  ]) {
+    await page.getByRole('button', { name: '+ Add a document' }).click()
+    const row = page.locator('.wb-item.upload').last()
+    await row.locator('select').selectOption(item)
+    await row.getByLabel('Type / title').fill(title)
+    await row.getByLabel('Document date').fill('2026-11-04')
+    await row.getByLabel('Text file').setInputFiles(sample(file))
+  }
+  await snap(page, 'maker-returned')
+  await page.getByRole('button', { name: 'Submit to the master' }).click()
+  await expect(status(page).getByText('Waiting on Daniel Tan')).toBeVisible()
+
+  // ---- checker approves (two-step confirm)
+  await actAs(page, 'daniel.tan')
+  await expect(page.getByRole('heading', { name: 'Your turn: checker review' })).toBeVisible()
+  await expect(page.locator('.review-answers li', { hasText: 'Source of wealth of UBOs' })).toContainText('Tan Hui Min')
+  await page.getByRole('button', { name: 'Approve…' }).click()
+  await page.getByRole('button', { name: 'Confirm: approve as MEDIUM' }).click()
+  await expect(status(page).getByText('Closed')).toBeVisible()
+  await expect(page.locator('.summary')).toContainText('Approved by Daniel Tan')
+  await expect(page.locator('.timeline')).toContainText('R9')
+})

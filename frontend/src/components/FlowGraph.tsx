@@ -129,7 +129,7 @@ export default function FlowGraph({ workflow, events, status, working, selectedS
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} colorMode="system" fitView
                  fitViewOptions={{ padding: 0.12 }} nodesDraggable={false} nodesConnectable={false}
                  elementsSelectable={false} zoomOnScroll={false} panOnScroll={false} preventScrolling={false}
-                 proOptions={{ hideAttribution: true }} minZoom={0.4}>
+                 minZoom={0.4}>
         <Background gap={20} size={1} />
       </ReactFlow>
       <div className="flow-legend small">

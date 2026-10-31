@@ -64,11 +64,12 @@ export interface CaseDetail {
     principal_activity: string; ssic_code: string | null; prior_rating: string | null
     prior_assessment_date: string | null
     parties: { id: number; parent_id: number | null; type: 'PERSON' | 'ENTITY'; name: string
-      nationality: string | null; director: boolean; shareholder: boolean; ubo: boolean
+      nationality: string | null; date_of_birth: string | null; director: boolean; shareholder: boolean; ubo: boolean
       ownership_pct: number | null }[]
   }
   documents: Doc[]
   missing_documents: { checklist_item: string; label: string; identity_critical: boolean; reason: string }[]
+  upload_items: { item: string; label: string }[]
   fields: Field[]
   open_items: Record<string, string>
   answers: Answer[]
@@ -139,3 +140,10 @@ export const post = <T>(path: string, body: unknown) => api<T>(path, { method: '
 export interface WorkflowNode { id: CaseStatus; label: string; actor: 'scheduler' | 'agents' | 'maker' | 'checker' | 'done' }
 export interface WorkflowEdge { id: string; source: CaseStatus; target: CaseStatus; rules: string[]; description: string }
 export interface Workflow { nodes: WorkflowNode[]; edges: WorkflowEdge[] }
+
+export interface UploadBody { item: string; type: string; date: string; fy_end?: string; expiry?: string; text: string }
+export interface MakerSubmitBody {
+  uploads: UploadBody[]
+  field_edits: Record<string, { value: unknown; note: string }>
+  dispositions: Record<string, string>
+}

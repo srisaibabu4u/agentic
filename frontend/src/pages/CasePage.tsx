@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { api, type CaseDetail, type Timeline as TimelineData, type Workflow } from '../api'
+import ActionPanel from '../components/ActionPanel'
 import CaseSummary from '../components/CaseSummary'
 import FlowGraph from '../components/FlowGraph'
 import Timeline from '../components/Timeline'
@@ -59,6 +60,8 @@ export default function CasePage() {
           ) : busy(c) ? <span className="badge agent pulse">Agents working</span> : null}
         </div>
       </div>
+
+      <ActionPanel c={c} />
 
       <div className="card">
         <div className="card-head">
