@@ -1,10 +1,14 @@
 // End-to-end tests: the real UI in the installed Chrome, against the real API, worker and Postgres.
-// Postgres must be running (docker compose up -d db). The database is reseeded before the worker starts.
+// By default they start the dev servers (Postgres must be running: docker compose up -d db) and reseed the
+// database before the worker starts. With E2E_BASE_URL set they test that running stack instead, e.g. the
+// Docker Compose stack on a fresh volume.
 import path from 'node:path'
 import { defineConfig } from '@playwright/test'
 
 const backend = path.resolve(import.meta.dirname, '../backend')
 const python = path.resolve(import.meta.dirname, process.platform === 'win32' ? '../venv/Scripts/python.exe' : '../venv/bin/python')
+
+const external = process.env.E2E_BASE_URL
 
 export default defineConfig({
   testDir: 'e2e',
@@ -12,8 +16,8 @@ export default defineConfig({
   expect: { timeout: 60_000 }, // the agents need a few seconds per step
   workers: 1,
   reporter: [['list']],
-  use: { baseURL: 'http://localhost:5173', channel: 'chrome', headless: true, trace: 'retain-on-failure' },
-  webServer: [
+  use: { baseURL: external ?? 'http://localhost:5173', channel: 'chrome', headless: true, trace: 'retain-on-failure' },
+  webServer: external ? undefined : [
     { command: `"${python}" -m uvicorn kyc.api.app:app --port 8000`, cwd: backend,
       url: 'http://localhost:8000/health', reuseExistingServer: false, timeout: 60_000 },
     // reseed, then start the worker: in one command so the worker never sees the data being replaced

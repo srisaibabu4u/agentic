@@ -117,6 +117,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--seed", type=int, default=42, help="random seed (same seed, same data)")
     ap.add_argument("--as-of", type=date.fromisoformat, default=date.today(), help="reference date, YYYY-MM-DD")
     ap.add_argument("--reset", action="store_true", help="empty every table and the generated folder first")
+    ap.add_argument("--if-empty", action="store_true", help="seed only an empty database; otherwise exit quietly")
     args = ap.parse_args(argv)
 
     proto = load_prototype()
@@ -124,6 +125,9 @@ def main(argv: list[str] | None = None) -> None:
         if args.reset:
             reset(db)
         elif db.scalar(select(func.count()).select_from(m.User)):
+            if args.if_empty:
+                print("Database already has data; not seeding.")
+                return
             raise SystemExit("Database already has data. Re-run with --reset to replace it.")
 
         cl, qn = load_reference(db, proto)

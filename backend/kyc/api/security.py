@@ -18,6 +18,7 @@ log = logging.getLogger("kyc.auth")
 COOKIE = "kyc_session"
 ALGORITHM = "HS256"
 
+config.check()
 if config.JWT_SECRET:
     SECRET = config.JWT_SECRET
 else:

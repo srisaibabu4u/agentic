@@ -266,6 +266,33 @@ cd frontend && npm run e2e     # Halcyon from first maker review to approval, th
 
 ## Phase 4: login, one-command stack, hardening (in progress)
 
+**Run everything with Docker** (Docker Desktop or Docker Engine with Compose v2):
+
+```bash
+python -c "import secrets; print('KYC_JWT_SECRET=' + secrets.token_urlsafe(48))" > .env
+docker compose up -d --build --wait
+# open http://localhost:8080 and sign in, e.g. priya.nair / kyc-demo-123
+```
+
+| Service | What it does |
+|---|---|
+| `db` | Postgres 16 (volume `kyc-pgdata`) |
+| `migrate` | Runs once: `alembic upgrade head`, then seeds dummy data if the database is empty |
+| `api` | FastAPI on the internal network (not published); refuses to start without a strong `KYC_JWT_SECRET` |
+| `worker` | Runs master decisions and agent tasks; scale with `docker compose up -d --scale worker=3` |
+| `ui` | nginx serving the built UI on port 8080, forwarding `/api` to `api` (unbuffered, for live updates), with security headers |
+
+`docker compose logs -f worker` follows the workflow; `docker compose down` stops it (add `-v` to delete the data).
+For local development keep using `docker compose up -d --wait db` and run the API, worker and UI from source as above.
+
+To run the end-to-end tests against a throwaway copy of the stack on other ports:
+
+```bash
+KYC_DB_PORT=55432 KYC_UI_PORT=8081 docker compose -p kyc-e2e up -d --build --wait
+(cd frontend && E2E_BASE_URL=http://localhost:8081 npm run e2e)
+docker compose -p kyc-e2e down -v
+```
+
 **Login.** `POST /auth/login` with a username and password (bcrypt-hashed in `users`) returns a signed JWT
 (HS256, 8 hours). Browsers get it as an httpOnly, `SameSite=Strict` session cookie that scripts cannot read
 and other sites cannot make the browser send; API clients send it as `Authorization: Bearer <token>`.
