@@ -235,6 +235,7 @@ class Generator:
             f"[p3]\nTrade countries: {', '.join(trade_prior + ([new_lane] if new_lane else []))}\n"
             f"New trade lane: {lane}\nExpected monthly inflow: SGD {inflow:,}\n"
             f"UBO1 source of wealth: {d1['source_of_wealth']}\n"
+            + (f"UBO2 source of wealth: {sh2['source_of_wealth']}\n" if sh2["party_type"] == "PERSON" else "") +
             f"Prior directors: {'; '.join(d['name'] for d in directors)}")
         return docs
 

@@ -168,6 +168,15 @@ class CountryRisk(Base):
     risk_level: Mapped[int] = mapped_column(Integer)
 
 
+class IndustryRisk(Base):
+    __tablename__ = "industry_risk"
+    __table_args__ = (CheckConstraint("risk_level BETWEEN 1 AND 5", name="level"),)
+
+    ssic_code: Mapped[str] = mapped_column(String(8), primary_key=True)
+    label: Mapped[str] = mapped_column(String(64))
+    risk_level: Mapped[int] = mapped_column(Integer)
+
+
 class PolicyRule(Base):
     __tablename__ = "policy_rules"
 
@@ -221,7 +230,10 @@ class Case(Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     manifest: Mapped[dict | None] = mapped_column(JSONB)           # Agent 1's latest document manifest
     open_items: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+    retries: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")   # "agent:item" -> count
+    maker_submitted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     final_rating: Mapped[str | None] = mapped_column(String(16))
+    approval_comment: Mapped[str | None] = mapped_column(Text)
     next_review_date: Mapped[date | None] = mapped_column(Date)
     task_seq: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     scenario: Mapped[str | None] = mapped_column(String(32))       # seed tag, for demos and tests
@@ -345,9 +357,10 @@ class ExtractedField(Base):
     value: Mapped[dict | list | str | int | None] = mapped_column(JSONB)
     raw: Mapped[str | None] = mapped_column(Text)
     confidence: Mapped[Decimal] = mapped_column(Numeric(3, 2))
+    source_ref: Mapped[str | None] = mapped_column(String(64))     # as the agent wrote it, e.g. DOC-03#p1 or maker
     document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"))
     source_page: Mapped[int | None] = mapped_column(Integer)
-    conflict: Mapped[bool] = mapped_column(Boolean, default=False)
+    conflict: Mapped[bool | None] = mapped_column(Boolean)
     note: Mapped[str | None] = mapped_column(Text)
     task_id: Mapped[int | None] = mapped_column(ForeignKey("agent_tasks.id"))
     confirmed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
@@ -372,11 +385,14 @@ class ScreeningHit(Base):
 
 
 class Disposition(Base):
+    """The maker's disposition of an open item, e.g. ref 'screening.hits' covers every hit in that field."""
     __tablename__ = "dispositions"
-    __table_args__ = (CheckConstraint("outcome IN ('FALSE_POSITIVE', 'TRUE_MATCH')", name="outcome"),)
+    __table_args__ = (CheckConstraint("outcome IN ('FALSE_POSITIVE', 'TRUE_MATCH')", name="outcome"),
+                      UniqueConstraint("case_id", "ref", name="case_ref_disposition"))
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    hit_id: Mapped[int] = mapped_column(ForeignKey("screening_hits.id", ondelete="CASCADE"), unique=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"))
+    ref: Mapped[str] = mapped_column(String(64))
     outcome: Mapped[str] = mapped_column(String(16))
     rationale: Mapped[str] = mapped_column(Text)
     decided_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
@@ -406,6 +422,7 @@ class Answer(Base):
     flags: Mapped[list[str]] = mapped_column(ARRAY(String(32)), default=list)
     confidence: Mapped[Decimal | None] = mapped_column(Numeric(3, 2))
     resolves: Mapped[str | None] = mapped_column(Text)
+    evidence_needed: Mapped[list | None] = mapped_column(JSONB)    # suggestions only
     task_id: Mapped[int | None] = mapped_column(ForeignKey("agent_tasks.id"))
     created_at: Mapped[datetime] = _now()
 
@@ -424,6 +441,7 @@ class ReviewFinding(Base):
     issue: Mapped[str] = mapped_column(Text)
     policy_ref: Mapped[str | None] = mapped_column(String(16))
     evidence_available: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")  # from the latest review
     created_at: Mapped[datetime] = _now()
 
 

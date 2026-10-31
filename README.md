@@ -191,7 +191,50 @@ Set `KYC_DATABASE_URL` (or copy `.env.example` to `.env`) to point somewhere els
 
 Four-eyes control is enforced in the database as well as by guardrail G5. A CHECK stops a case's maker and checker being the same user. Triggers require the right roles and allow only the case's assigned checker to approve a final rating.
 
+## Phase 2: workflow on the database, and the API
+
+```bash
+cd backend
+../venv/Scripts/python -m kyc.worker --until-idle    # run every seeded case until it needs a person
+../venv/Scripts/python -m kyc.worker                 # or keep running, polling every second
+../venv/Scripts/python -m kyc.worker --live A3,A4    # drafting and review call Claude (ANTHROPIC_API_KEY)
+```
+
+The worker repeats one unit of work at a time: a master decision on an undecided event
+([services/engine.py](backend/kyc/services/engine.py)), or one agent task: claim, run, record
+([services/worker.py](backend/kyc/services/worker.py)). Cases and tasks are claimed with
+`FOR UPDATE SKIP LOCKED`, so several workers can run side by side. The master and agents are the prototype's own code.
+[services/store.py](backend/kyc/services/store.py) rebuilds the in-memory `Case` from the tables and writes changes back,
+and [orchestrator/state.py](orchestrator/state.py) holds the state-change rules both engines share.
+The Halcyon run on the database matches `run.py` decision for decision (`tests/test_worker.py`).
+
+To start over, reseed: `python -m kyc.seed --clients 25 --reset`.
+
+**API** ([backend/kyc/api/](backend/kyc/api/)). Run it next to the worker; interactive docs are at http://localhost:8000/docs.
+
+```bash
+cd backend
+../venv/Scripts/python -m uvicorn kyc.api.app:app --reload     # terminal 1
+../venv/Scripts/python -m kyc.worker                           # terminal 2
+curl -H "X-User: priya.nair" "http://localhost:8000/cases?waiting_on_me=true"
+```
+
+| Endpoint | Who | What |
+|---|---|---|
+| `GET /cases` | anyone | List; filters `status`, `assigned`, `waiting_on_me`, `q` |
+| `GET /cases/{ref}` | anyone | Detail: client and parties, documents, fields, answers, rating, findings, screening, notifications |
+| `GET /cases/{ref}/timeline` | anyone | Every event with the master decision it led to (rules, guardrails, rationale, state read) |
+| `GET /cases/{ref}/answers/{q_id}` | anyone | Every version of one answer, including suggested redrafts |
+| `GET /documents/{id}` | anyone | Document text and metadata |
+| `GET /cases/{ref}/stream` | anyone | Server-sent events whenever the case changes |
+| `POST /cases/{ref}/maker/submit` | the case's maker | Uploads, field confirmations, dispositions |
+| `POST /cases/{ref}/checker/return` | the case's checker | Return questions with comments |
+| `POST /cases/{ref}/checker/approve` | the case's checker | Approve with a final rating |
+
+Until JWT login (Phase 4), the acting user is the `X-User` header. Actions are accepted only from the case's assigned
+maker or checker (otherwise `403`) and only while the case waits on that role (otherwise `409`). They append an event
+and return `202`; the worker applies them.
+
 ## Next phases
-2. A database-backed engine and worker, plus the FastAPI API, reusing `orchestrator/master.py` unchanged. The prototype agents are written around the Halcyon case (for example, Q4 expects both FY2024 and FY2025 turnover), so they will be generalised for the generated clients.
 3. React UI: dashboard, live flow graph, maker workbench, checker review, audit replay.
 4. JWT login and roles, the full stack in Docker Compose, hardening.

@@ -118,11 +118,13 @@ EXTRACTORS = [
     ("shareholder_register", "ubo.2", r"Shareholder:\s*([^|]+?)\s*\|\s*([\d,?]+) shares\s*\|\s*(.+)", "sh:1"),
     ("audited_fs", "turnover.fy{yr}", r"Revenue FY(\d{4}):\s*SGD ([\d,]+)", "money"),
     ("screening_report", "screening.hits", r"Potential match:\s*(.+)", "hits"),
+    ("screening_report", "screening.hits", r"No potential matches", "no_hits"),  # a clear report is evidence too
     ("screening_report", "adverse_media", r"Adverse media:\s*(.+)", "str"),
     ("prior_assessment", "trade.countries", r"Trade countries:\s*(.+)", "csv"),
     ("prior_assessment", "trade.new_lane", r"New trade lane:\s*(.+)", "str"),
     ("prior_assessment", "activity.monthly_inflow", r"Expected monthly inflow:\s*SGD ([\d,]+)", "num"),
     ("prior_assessment", "ubo.1.sow", r"UBO1 source of wealth:\s*(.+)", "str"),
+    ("prior_assessment", "ubo.2.sow", r"UBO2 source of wealth:\s*(.+)", "str"),   # when UBO2 is a person
     ("prior_assessment", "directors.prior", r"Prior directors:\s*(.+)", "semi"),
     ("ubo_corporate_register", "ubo.2.owner", r"Member:\s*([^|]+?)\s*\|\s*Nationality:\s*(\w+)\s*\|\s*(\d+)%", "member"),
     ("sow_declaration", "ubo.2.sow", r"Source of wealth:\s*(.+)", "str"),
@@ -185,6 +187,10 @@ class IngestionAgent(BaseAgent):
                     raw, conf = "; ".join(x.group(0) for x in ms), 0.90
                     flags.append({"code": "SCREENING_HIT", "ref": "screening.hits",
                                   "detail": f"{len(val)} potential match(es) need a maker disposition"})
+                elif kind == "no_hits":
+                    if fid in fields:
+                        continue
+                    val, raw = [], m.group(0)
                 elif kind == "member":
                     val = {"name": m.group(1).strip(), "nationality": m.group(2), "pct_of_holding": int(m.group(3))}
                     raw = m.group(0)
@@ -203,12 +209,35 @@ class IngestionAgent(BaseAgent):
 
 
 # ============================================================ Agent 3 · Drafting
+RISK_WORD = {1: "low-risk", 2: "standard-risk", 3: "elevated-risk", 4: "high-risk", 5: "very high-risk"}
+CORPORATE = re.compile(r"\b(Ltd|Limited|Inc|LLC|Pte|Holdings|Corp)\b")
+JURISDICTION = {"BVI": "BVI", "Cayman": "KY", "HK": "HK"}   # name suffix "(BVI)" -> country code
+
+
+def _lc(s: str) -> str:
+    return s[0].lower() + s[1:]
+
+
+def jurisdiction(name: str) -> str | None:
+    m = re.search(r"\((\w+)\)\s*$", name)
+    return JURISDICTION.get(m.group(1), m.group(1)) if m else None
+
+
 class DraftingAgent(BaseAgent):
     agent_id, prompt_file, required_keys = A3, "a3_drafting.md", ("status", "mode", "answers")
 
     def _f(self, case, fid):
         f = case.fields.get(fid)
         return f["value"] if f else None
+
+    @staticmethod
+    def _turnover(case) -> list[tuple[int, int]]:
+        """(year, revenue) for every turnover.fyYYYY field, oldest first."""
+        return sorted((int(k[-4:]), v["value"]) for k, v in case.fields.items() if re.fullmatch(r"turnover\.fy\d{4}", k))
+
+    @staticmethod
+    def _fs_fresh(case) -> bool:
+        return any(d["item"] == "audited_fs" and d.get("fresh", True) for d in case.docs.values())
 
     def _flags(self, case, fids):
         fl = []
@@ -222,18 +251,30 @@ class DraftingAgent(BaseAgent):
         note_txt = " ".join(n.get("issue", "") + n.get("comment", "") for n in notes if n.get("q_id") == q)
 
         if q == "Q1":
-            return dict(answer=f"{f('entity.name')} ({f('entity.uen')}) carries on {f('entity.activity')}.",
-                        score=2, score_reason="Logistics: standard-risk industry", cites=["entity.name", "entity.activity"])
+            activity = f("entity.activity") or ""
+            ssic = re.search(r"SSIC (\d+)", activity)
+            entry = self.cfg["questionnaire"].get("industry_risk", {}).get(ssic.group(1) if ssic else "")
+            if entry:
+                label, lvl = entry
+                score, reason = lvl, f"{label}: {RISK_WORD[lvl]} industry"
+            else:
+                score, reason = 3, "Industry not on the reference list; treated as elevated-risk"
+            return dict(answer=f"{f('entity.name')} ({f('entity.uen')}) carries on {activity}.",
+                        score=score, score_reason=reason, cites=["entity.name", "entity.activity"])
         if q == "Q2":
             u1, u2 = f("ubo.1"), f("ubo.2")
-            ok = u1 and u2 and u1["pct"] + u2["pct"] == 100
-            off = "BVI" in (u2 or {}).get("name", "")
+            owners = [u for u in (u1, u2) if u]
+            ok = sum(u["pct"] for u in owners) == 100
+            corp = [u for u in owners if CORPORATE.search(u["name"])]
+            off = [u for u in corp if cr.get(jurisdiction(u["name"]) or "SG", 3) >= 4]
             confirmed = "ubo.2" in case.maker_inputs["edits"]
-            return dict(answer=f"{u1['name']} holds {u1['pct']}%; {u2['name']} holds {u2['pct']}%"
-                               f"{' (confirmed by maker against signed register)' if confirmed else ' (percentage not confirmed)'}. "
-                               f"Total {'100%' if ok else 'does not reconcile to 100%'}.",
-                        score=3 if off else 2, score_reason="Offshore corporate shareholder" if off else "Natural-person owners",
-                        cites=["ubo.1", "ubo.2"])
+            held = "; ".join(f"{u['name']} holds {u['pct']}%" for u in owners)
+            if u2:
+                held += ' (confirmed by maker against signed register)' if confirmed else ' (percentage not confirmed)'
+            score, reason = ((3, "Offshore corporate shareholder") if off else
+                             (2, "Onshore corporate shareholder") if corp else (2, "Natural-person owners"))
+            return dict(answer=f"{held}. Total {'100%' if ok else 'does not reconcile to 100%'}.",
+                        score=score, score_reason=reason, cites=["ubo.1", "ubo.2"] if u2 else ["ubo.1"])
         if q == "Q3":
             cs = f("trade.countries") or []
             top = max(cs, key=lambda c: cr.get(c, 3))
@@ -241,20 +282,37 @@ class DraftingAgent(BaseAgent):
                                f"(level {cr.get(top, 3)} on country list).",
                         score=max(cr.get(c, 3) for c in cs), score_reason="Highest corridor risk", cites=["trade.countries"])
         if q == "Q4":
-            t24, t25 = f("turnover.fy2024"), f("turnover.fy2025")
-            if t25:
-                g = (t25 - t24) / t24 * 100
-                return dict(answer=f"Turnover {_money(t25)} in FY2025, up {g:.0f}% from {_money(t24)} in FY2024.",
-                            score=2, score_reason="Audited, stable growth", cites=["turnover.fy2024", "turnover.fy2025"])
-            return dict(answer=f"Turnover {_money(t24)} in FY2024. FY2025 audited statements not yet received.",
-                        score=2, score_reason="Audited but stale", cites=["turnover.fy2024"], extra_flags=["STALE_EVIDENCE"])
+            years, fresh = self._turnover(case), self._fs_fresh(case)
+            if len(years) >= 2:
+                (y0, t0), (y1, t1) = years[-2:]
+                g = (t1 - t0) / t0 * 100
+                score, reason = ((3, "Rapid turnover growth") if g > 50 else (3, "Turnover decline") if g < -20
+                                 else (2, "Audited, stable growth"))
+                return dict(answer=f"Turnover {_money(t1)} in FY{y1}, {'up' if g >= 0 else 'down'} {abs(g):.0f}% "
+                                   f"from {_money(t0)} in FY{y0}.",
+                            score=score, score_reason=reason, cites=[f"turnover.fy{y0}", f"turnover.fy{y1}"],
+                            extra_flags=[] if fresh else ["STALE_EVIDENCE"])
+            if years:
+                y, t = years[-1]
+                if fresh:
+                    return dict(answer=f"Turnover {_money(t)} in FY{y} (audited).", score=2,
+                                score_reason="Audited, current", cites=[f"turnover.fy{y}"])
+                return dict(answer=f"Turnover {_money(t)} in FY{y}. FY{y + 1} audited statements not yet received.",
+                            score=2, score_reason="Audited but stale", cites=[f"turnover.fy{y}"], extra_flags=["STALE_EVIDENCE"])
+            return dict(answer="No audited financial statements on file.", score=None,
+                        score_reason="No financial evidence", cites=[])
         if q == "Q5":
-            inflow = f("activity.monthly_inflow")
-            t = f("turnover.fy2025") or f("turnover.fy2024")
+            inflow, years = f("activity.monthly_inflow"), self._turnover(case)
+            if not inflow or not years:
+                return dict(answer="Expected account activity cannot be assessed: inflow or turnover not on file.",
+                            score=None, score_reason="Missing evidence", cites=[])
+            y, t = years[-1]
+            high = inflow * 12 > 1.5 * t
             return dict(answer=f"Expected inflows of {_money(inflow)} a month ({_money(inflow * 12)} a year), "
-                               f"consistent with turnover of {_money(t)}.",
-                        score=2, score_reason="Activity consistent with turnover",
-                        cites=["activity.monthly_inflow", "turnover.fy2025" if f("turnover.fy2025") else "turnover.fy2024"])
+                               f"{'well above' if high else 'consistent with'} turnover of {_money(t)}.",
+                        score=4 if high else 2,
+                        score_reason="Expected activity well above turnover" if high else "Activity consistent with turnover",
+                        cites=["activity.monthly_inflow", f"turnover.fy{y}"])
         if q == "Q6":
             hits, disp = f("screening.hits") or [], case.maker_inputs["dispositions"].get("screening.hits")
             if not hits:
@@ -273,17 +331,25 @@ class DraftingAgent(BaseAgent):
         if q == "Q7":
             u1, u2 = f("ubo.1"), f("ubo.2")
             owner, sow2 = f("ubo.2.owner"), f("ubo.2.sow")
-            if owner and sow2:
-                return dict(answer=f"{u1['name']} ({u1['pct']}%): {f('ubo.1.sow')[0].lower() + f('ubo.1.sow')[1:]}. {owner['name']} ({owner['nationality']}) "
-                                   f"owns {owner['pct_of_holding']}% of {u2['name']} ({u2['pct']}%): {sow2[0].lower() + sow2[1:]}.",
+            if owner and sow2:  # corporate shareholder, looked through to its owner
+                return dict(answer=f"{u1['name']} ({u1['pct']}%): {_lc(f('ubo.1.sow'))}. {owner['name']} ({owner['nationality']}) "
+                                   f"owns {owner['pct_of_holding']}% of {u2['name']} ({u2['pct']}%): {_lc(sow2)}.",
                             score=2, score_reason="SoW evidenced for every UBO", cites=["ubo.1.sow", "ubo.2.owner", "ubo.2.sow"])
+            if u2 and sow2 and not CORPORATE.search(u2["name"]):  # second owner is a person
+                return dict(answer=f"{u1['name']} ({u1['pct']}%): {_lc(f('ubo.1.sow'))}. "
+                                   f"{u2['name']} ({u2['pct']}%): {_lc(sow2)}.",
+                            score=2, score_reason="SoW evidenced for every UBO", cites=["ubo.1.sow", "ubo.2.sow"])
             return dict(answer=f"{u1['name']}: {f('ubo.1.sow').lower()}.", score=2,
                         score_reason="Founder SoW on file", cites=["ubo.1.sow"])
         if q == "Q8":
             now_d = [d.split(" (")[0] for d in f("directors") or []]
-            changes = "No director changes" if sorted(now_d) == sorted(f("directors.prior") or []) else "Director changes"
-            return dict(answer=f"{changes} since last review. {f('trade.new_lane')}.", score=2,
-                        score_reason="New corridor added", cites=["directors", "directors.prior", "trade.new_lane"])
+            changed = sorted(now_d) != sorted(f("directors.prior") or [])
+            lane = f("trade.new_lane") or "No new trade lanes since last review"
+            new_lane = not lane.lower().startswith("no new")
+            reasons = [r for r, on in (("Director changes", changed), ("New corridor added", new_lane)) if on]
+            return dict(answer=f"{'Director changes' if changed else 'No director changes'} since last review. {lane}.",
+                        score=1 + changed + new_lane, score_reason=" and ".join(reasons) or "No material changes",
+                        cites=["directors", "directors.prior", "trade.new_lane"])
         raise ValueError(q)
 
     def suggest(self, q: str, case: Case, notes: list) -> dict:
