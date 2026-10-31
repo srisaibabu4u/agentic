@@ -1,0 +1,58 @@
+[
+  {
+    "channel": "task_inbox+email",
+    "to": "Priya Nair \u00b7 Maker (RM)",
+    "cc": [],
+    "subject": "RA-2026-0412 Halcyon Marine: documents needed",
+    "body": "Priya, please upload 1 document(s) so drafting can complete.\n1. Audited financial statements\nCase RA-2026-0412, Halcyon Marine Logistics Pte Ltd, due 15 Nov 2026.\nhttps://kyc.example.internal/cases/RA-2026-0412",
+    "message_id": "m-0030"
+  },
+  {
+    "channel": "task_inbox+email",
+    "to": "Priya Nair \u00b7 Maker (RM)",
+    "cc": [],
+    "subject": "RA-2026-0412 Halcyon Marine: 3 items to resolve",
+    "body": "Priya, please resolve 3 item(s) on the draft and submit.\n1. ubo.2: LOW_CONF_FIELD (0.62): confirm value\n2. screening.hits: SCREENING_HIT: disposition required\n3. Upload: Audited financial statements\nCase RA-2026-0412, Halcyon Marine Logistics Pte Ltd, due 15 Nov 2026.\nhttps://kyc.example.internal/cases/RA-2026-0412",
+    "message_id": "m-0050"
+  },
+  {
+    "channel": "task_inbox+email",
+    "to": "Daniel Tan \u00b7 Checker (Compliance)",
+    "cc": [],
+    "subject": "RA-2026-0412 Halcyon Marine: ready for approval",
+    "body": "Daniel, the case is ready for your approval.\n1. Approve proposed rating MEDIUM (17/40)\nCase RA-2026-0412, Halcyon Marine Logistics Pte Ltd, due 15 Nov 2026.\nhttps://kyc.example.internal/cases/RA-2026-0412",
+    "message_id": "m-0110"
+  },
+  {
+    "channel": "task_inbox+email",
+    "to": "Priya Nair \u00b7 Maker (RM)",
+    "cc": [],
+    "subject": "RA-2026-0412 Halcyon Marine: returned by checker",
+    "body": "Priya, the checker returned 1 question(s); a suggested redraft is ready.\n1. Q7: Seacrest (BVI) holds 45%. Identify its ultimate owners and their source of wealth.\nCase RA-2026-0412, Halcyon Marine Logistics Pte Ltd, due 15 Nov 2026.\nhttps://kyc.example.internal/cases/RA-2026-0412",
+    "message_id": "m-0130"
+  },
+  {
+    "channel": "task_inbox+email",
+    "to": "Daniel Tan \u00b7 Checker (Compliance)",
+    "cc": [],
+    "subject": "RA-2026-0412 Halcyon Marine: ready for approval",
+    "body": "Daniel, the case is ready for your approval.\n1. Approve proposed rating MEDIUM (17/40)\nCase RA-2026-0412, Halcyon Marine Logistics Pte Ltd, due 15 Nov 2026.\nhttps://kyc.example.internal/cases/RA-2026-0412",
+    "message_id": "m-0170"
+  },
+  {
+    "channel": "task_inbox+email",
+    "to": "Priya Nair \u00b7 Maker (RM)",
+    "cc": [],
+    "subject": "RA-2026-0412 Halcyon Marine: approved and closed",
+    "body": "Priya, the case is approved and closed.\n1. Final rating MEDIUM\n2. Next review 2027-11-15\nCase RA-2026-0412, Halcyon Marine Logistics Pte Ltd, due 15 Nov 2026.\nhttps://kyc.example.internal/cases/RA-2026-0412",
+    "message_id": "m-0180"
+  },
+  {
+    "channel": "task_inbox+email",
+    "to": "Daniel Tan \u00b7 Checker (Compliance)",
+    "cc": [],
+    "subject": "RA-2026-0412 Halcyon Marine: approved and closed",
+    "body": "Daniel, the case is approved and closed.\n1. Final rating MEDIUM\n2. Next review 2027-11-15\nCase RA-2026-0412, Halcyon Marine Logistics Pte Ltd, due 15 Nov 2026.\nhttps://kyc.example.internal/cases/RA-2026-0412",
+    "message_id": "m-0181"
+  }
+]

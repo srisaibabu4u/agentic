@@ -1,0 +1,21 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "anthropic-key",
+      "description": "Anthropic API key (only needed for live agents; press Enter to skip)",
+      "password": true
+    }
+  ],
+  "servers": {
+    "kycOrchestrator": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/venv/bin/python",
+      "args": ["${workspaceFolder}/mcp_server.py"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "ANTHROPIC_API_KEY": "${input:anthropic-key}"
+      }
+    }
+  }
+}

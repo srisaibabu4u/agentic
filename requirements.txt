@@ -1,0 +1,2 @@
+mcp>=1.2          # MCP server for VS Code / Claude Code chat integration
+anthropic>=0.40   # only needed for --live / --shadow / live_agents

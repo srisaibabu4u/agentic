@@ -1,0 +1,115 @@
+{
+  "_note": "DUMMY SAMPLE DATA. Fictional client, people and documents for demonstration only.",
+  "case": {
+    "case_id": "RA-2026-0412",
+    "client_id": "CIF-883104",
+    "legal_name": "Halcyon Marine Logistics Pte Ltd",
+    "short_name": "Halcyon Marine",
+    "uen": "201534812K",
+    "segment": "Corporate SG",
+    "prior_rating": "MEDIUM",
+    "prior_assessment_date": "2025-11-15",
+    "due_date": "2026-11-15",
+    "start_time": "2026-10-30T09:00:00+08:00",
+    "maker": {"id": "priya.nair", "name": "Priya Nair", "role": "Maker (RM)"},
+    "checker": {"id": "daniel.tan", "name": "Daniel Tan", "role": "Checker (Compliance)"},
+    "team_lead": {"id": "grace.lim", "name": "Grace Lim", "role": "Team lead"},
+    "case_url": "https://kyc.example.internal/cases/RA-2026-0412"
+  },
+
+  "checklist": {
+    "id": "SG_CORP_MED_v4",
+    "items": [
+      {"item": "registry_extract", "label": "Company registry extract", "identity_critical": true},
+      {"item": "constitution", "label": "Constitution", "identity_critical": false},
+      {"item": "shareholder_register", "label": "Shareholder register", "identity_critical": false},
+      {"item": "director_ids", "label": "Director identity documents", "identity_critical": true},
+      {"item": "audited_fs", "label": "Audited financial statements", "identity_critical": false},
+      {"item": "screening_report", "label": "Screening report", "identity_critical": false},
+      {"item": "prior_assessment", "label": "Prior risk assessment", "identity_critical": false}
+    ]
+  },
+
+  "document_store": [
+    {"doc_id": "DOC-01", "source": "ACRA", "item": "registry_extract", "type": "ACRA BizFile", "date": "2026-10-29",
+     "text": "[p1]\nName: Halcyon Marine Logistics Pte Ltd\nUEN: 201534812K\nPrincipal activity: Freight forwarding and ship chartering (SSIC 52291)\n[p2]\nDirector: Lim Wei Jie | Nationality: SG | Appointed 2015-07-01\nDirector: Arun Menon | Nationality: IN | Appointed 2019-03-02"},
+    {"doc_id": "DOC-02", "source": "DMS", "item": "constitution", "type": "Constitution", "date": "2019-03-02",
+     "text": "[p1]\nConstitution of Halcyon Marine Logistics Pte Ltd. Ordinary shares only."},
+    {"doc_id": "DOC-03", "source": "DMS", "item": "shareholder_register", "type": "Shareholder register", "date": "2026-02-10",
+     "text": "[p1]\nTotal issued shares: 1,000,000\nShareholder: Lim Wei Jie | 550,000 shares | 55%\nShareholder: Seacrest Holdings Ltd (BVI) | 45?,000 shares | [stamp obscures figure]"},
+    {"doc_id": "DOC-04", "source": "DMS", "item": "director_ids", "type": "Director IDs (2)", "date": "2025-11-04", "expiry": "2031-06-30",
+     "text": "[p1]\nLim Wei Jie NRIC on file. Arun Menon passport on file, expiry 2031-06-30."},
+    {"doc_id": "DOC-05", "source": "DMS", "item": "audited_fs", "type": "Audited FS FY2024", "date": "2025-05-30", "fy_end": "2024-12-31",
+     "text": "[p6]\nRevenue FY2024: SGD 18,400,000\nNet profit FY2024: SGD 1,120,000"},
+    {"doc_id": "DOC-06", "source": "WorldCheck", "item": "screening_report", "type": "Screening report", "date": "2026-10-30",
+     "text": "[p1]\nScreened: Halcyon Marine Logistics Pte Ltd, Lim Wei Jie, Arun Menon, Seacrest Holdings Ltd\nPotential match: Arun Menon | List: WorldCheck | Record: WC-5530921 | Listed name: Arun K. Menon | Listed DOB: 1958-09-17 | Listed nationality: MY\nAdverse media: none found"},
+    {"doc_id": "DOC-07", "source": "DMS", "item": "prior_assessment", "type": "Prior assessment 2025", "date": "2025-11-12",
+     "text": "[p3]\nTrade countries: SG, MY, ID, AE\nNew trade lane: AE (Jebel Ali) added 2026\nExpected monthly inflow: SGD 1,500,000\nUBO1 source of wealth: Founder equity built from operating profits since 2015\nPrior directors: Lim Wei Jie; Arun Menon"}
+  ],
+
+  "human_script": {
+    "maker": [
+      {"at": "2026-11-02T14:20:00+08:00", "event": "MAKER_SUBMIT",
+       "uploads": [
+         {"doc_id": "DOC-08", "source": "Maker upload", "item": "audited_fs", "type": "Audited FS FY2025", "date": "2026-04-28", "fy_end": "2025-12-31",
+          "text": "[p7]\nRevenue FY2025: SGD 21,100,000\nNet profit FY2025: SGD 1,410,000"}],
+       "field_edits": {"ubo.2": {"value": {"name": "Seacrest Holdings Ltd (BVI)", "pct": 45}, "note": "Confirmed against client-signed register dated 2026-02-10"}},
+       "dispositions": {"screening.hits": "False positive. DOB 1971-04-02 vs listed 1958-09-17; nationality IN vs listed MY."}},
+      {"at": "2026-11-04T16:40:00+08:00", "event": "MAKER_SUBMIT",
+       "uploads": [
+         {"doc_id": "DOC-09", "source": "Maker upload", "item": "ubo_corporate_register", "type": "Seacrest register of members", "date": "2026-11-04",
+          "text": "[p1]\nSeacrest Holdings Ltd (BVI) register of members\nMember: Tan Hui Min | Nationality: SG | 100%"},
+         {"doc_id": "DOC-10", "source": "Maker upload", "item": "sow_declaration", "type": "SoW declaration + sale deed", "date": "2026-11-04",
+          "text": "[p1]\nDeclarant: Tan Hui Min\nSource of wealth: Sale of residential property (Orchard Boulevard) in 2021, SGD 6,200,000"}],
+       "field_edits": {}, "dispositions": {}}
+    ],
+    "checker": [
+      {"at": "2026-11-03T10:05:00+08:00", "event": "CHECKER_RETURN",
+       "returned": [{"q_id": "Q7", "comment": "Seacrest (BVI) holds 45%. Identify its ultimate owners and their source of wealth."}]},
+      {"at": "2026-11-05T09:15:00+08:00", "event": "CHECKER_APPROVE",
+       "final_rating": "MEDIUM", "comment": "Ownership chain fully evidenced."}
+    ]
+  },
+
+  "dependency_map": {
+    "doc_item_to_fields": {
+      "registry_extract": ["entity.name", "entity.uen", "entity.activity", "directors"],
+      "shareholder_register": ["ubo.1", "ubo.2"],
+      "audited_fs": ["turnover.fy2024", "turnover.fy2025"],
+      "screening_report": ["screening.hits", "adverse_media"],
+      "prior_assessment": ["trade.countries", "trade.new_lane", "activity.monthly_inflow", "ubo.1.sow", "directors.prior"],
+      "ubo_corporate_register": ["ubo.2.owner"],
+      "sow_declaration": ["ubo.2.sow"]
+    },
+    "field_to_questions": {
+      "entity.activity": ["Q1"],
+      "ubo.1": ["Q2"], "ubo.2": ["Q2", "Q7"],
+      "trade.countries": ["Q3"],
+      "turnover.fy2024": ["Q4", "Q5"], "turnover.fy2025": ["Q4", "Q5"],
+      "activity.monthly_inflow": ["Q5"],
+      "screening.hits": ["Q6"], "adverse_media": ["Q6"],
+      "ubo.1.sow": ["Q7"], "ubo.2.owner": ["Q7"], "ubo.2.sow": ["Q7"],
+      "directors": ["Q8"], "directors.prior": ["Q8"], "trade.new_lane": ["Q8"]
+    }
+  },
+
+  "questionnaire": {
+    "id": "CRA_CORP_v7",
+    "questions": [
+      {"q_id": "Q1", "text": "Nature of business"},
+      {"q_id": "Q2", "text": "Ownership and ultimate beneficial owners"},
+      {"q_id": "Q3", "text": "Geographic risk"},
+      {"q_id": "Q4", "text": "Financial profile"},
+      {"q_id": "Q5", "text": "Expected account activity"},
+      {"q_id": "Q6", "text": "Screening results and dispositions"},
+      {"q_id": "Q7", "text": "Source of wealth of UBOs"},
+      {"q_id": "Q8", "text": "Changes since last review"}
+    ],
+    "country_risk": {"SG": 1, "MY": 2, "ID": 3, "AE": 3, "BVI": 4},
+    "rating_bands": [{"band": "LOW", "max": 13}, {"band": "MEDIUM", "max": 24}, {"band": "HIGH", "max": 40}],
+    "policy": {
+      "7.2.4": "A screening disposition must state the list name and the record ID.",
+      "7.1.2": "UBO percentages must sum to 100%."
+    }
+  }
+}

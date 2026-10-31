@@ -1,0 +1,365 @@
+{
+  "case_id": "RA-2026-0412",
+  "status": "CLOSED",
+  "final": {
+    "rating": "MEDIUM",
+    "score": {
+      "total": 17,
+      "max": 40,
+      "working": "2+3+3+2+2+1+2+2",
+      "band": "MEDIUM"
+    },
+    "approved_by": "Daniel Tan",
+    "approved_at": "2026-11-05T09:15:00+08:00",
+    "next_review": "2027-11-15",
+    "comment": "Ownership chain fully evidenced."
+  },
+  "rating": {
+    "total": 17,
+    "max": 40,
+    "working": "2+3+3+2+2+1+2+2",
+    "band": "MEDIUM"
+  },
+  "answers": {
+    "Q1": {
+      "q_id": "Q1",
+      "answer": "Halcyon Marine Logistics Pte Ltd (201534812K) carries on Freight forwarding and ship chartering (SSIC 52291).",
+      "score": 2,
+      "score_reason": "Logistics: standard-risk industry",
+      "citations": [
+        "entity.name",
+        "entity.activity"
+      ],
+      "flags": [],
+      "confidence": 0.97
+    },
+    "Q2": {
+      "q_id": "Q2",
+      "answer": "Lim Wei Jie holds 55%; Seacrest Holdings Ltd (BVI) holds 45% (confirmed by maker against signed register). Total 100%.",
+      "score": 3,
+      "score_reason": "Offshore corporate shareholder",
+      "citations": [
+        "ubo.1",
+        "ubo.2"
+      ],
+      "flags": [],
+      "confidence": 0.96
+    },
+    "Q3": {
+      "q_id": "Q3",
+      "answer": "Trade corridors: SG, MY, ID, AE. Highest country risk is ID (level 3 on country list).",
+      "score": 3,
+      "score_reason": "Highest corridor risk",
+      "citations": [
+        "trade.countries"
+      ],
+      "flags": [],
+      "confidence": 0.88
+    },
+    "Q4": {
+      "q_id": "Q4",
+      "answer": "Turnover SGD 21.1m in FY2025, up 15% from SGD 18.4m in FY2024.",
+      "score": 2,
+      "score_reason": "Audited, stable growth",
+      "citations": [
+        "turnover.fy2024",
+        "turnover.fy2025"
+      ],
+      "flags": [],
+      "confidence": 0.97
+    },
+    "Q5": {
+      "q_id": "Q5",
+      "answer": "Expected inflows of SGD 1.5m a month (SGD 18.0m a year), consistent with turnover of SGD 21.1m.",
+      "score": 2,
+      "score_reason": "Activity consistent with turnover",
+      "citations": [
+        "activity.monthly_inflow",
+        "turnover.fy2025"
+      ],
+      "flags": [],
+      "confidence": 0.97
+    },
+    "Q6": {
+      "q_id": "Q6",
+      "answer": "WorldCheck record WC-5530921 (Arun K. Menon) dismissed by the maker as a false positive: DOB 1971-04-02 vs listed 1958-09-17; nationality IN vs listed MY.",
+      "score": 1,
+      "score_reason": "Match dismissed with rationale",
+      "citations": [
+        "screening.hits",
+        "maker.disposition.screening.hits"
+      ],
+      "flags": [],
+      "confidence": 0.9,
+      "resolves": "Disposition must state the screening list name and record ID."
+    },
+    "Q7": {
+      "q_id": "Q7",
+      "answer": "Lim Wei Jie (55%): founder equity built from operating profits since 2015. Tan Hui Min (SG) owns 100% of Seacrest Holdings Ltd (BVI) (45%): sale of residential property (Orchard Boulevard) in 2021, SGD 6,200,000.",
+      "score": 2,
+      "score_reason": "SoW evidenced for every UBO",
+      "citations": [
+        "ubo.1.sow",
+        "ubo.2.owner",
+        "ubo.2.sow"
+      ],
+      "flags": [],
+      "confidence": 0.97,
+      "resolves": "Seacrest (BVI) holds 45%. Identify its ultimate owners and their source of wealth."
+    },
+    "Q8": {
+      "q_id": "Q8",
+      "answer": "No director changes since last review. AE (Jebel Ali) added 2026.",
+      "score": 2,
+      "score_reason": "New corridor added",
+      "citations": [
+        "directors",
+        "directors.prior",
+        "trade.new_lane"
+      ],
+      "flags": [],
+      "confidence": 0.97
+    }
+  },
+  "fields": {
+    "entity.name": {
+      "value": "Halcyon Marine Logistics Pte Ltd",
+      "raw": "Name: Halcyon Marine Logistics Pte Ltd",
+      "confidence": 0.97,
+      "source": "DOC-01#p1",
+      "conflict": false,
+      "note": ""
+    },
+    "entity.uen": {
+      "value": "201534812K",
+      "raw": "UEN: 201534812K",
+      "confidence": 0.97,
+      "source": "DOC-01#p1",
+      "conflict": false,
+      "note": ""
+    },
+    "entity.activity": {
+      "value": "Freight forwarding and ship chartering (SSIC 52291)",
+      "raw": "Principal activity: Freight forwarding and ship chartering (SSIC 52291)",
+      "confidence": 0.97,
+      "source": "DOC-01#p1",
+      "conflict": false,
+      "note": ""
+    },
+    "directors": {
+      "value": [
+        "Lim Wei Jie (SG)",
+        "Arun Menon (IN)"
+      ],
+      "raw": "Director: Lim Wei Jie | Nationality: SG; Director: Arun Menon | Nationality: IN",
+      "confidence": 0.97,
+      "source": "DOC-01#p2",
+      "conflict": false,
+      "note": ""
+    },
+    "ubo.1": {
+      "value": {
+        "name": "Lim Wei Jie",
+        "pct": 55
+      },
+      "raw": "Shareholder: Lim Wei Jie | 550,000 shares | 55%",
+      "confidence": 0.96,
+      "source": "DOC-03#p1",
+      "conflict": false,
+      "note": "pct read directly; share count 550,000"
+    },
+    "ubo.2": {
+      "value": {
+        "name": "Seacrest Holdings Ltd (BVI)",
+        "pct": 45
+      },
+      "raw": "Shareholder: Seacrest Holdings Ltd (BVI) | 45?,000 shares | [stamp obscures figure]",
+      "confidence": 1.0,
+      "source": "maker",
+      "conflict": false,
+      "note": "Confirmed against client-signed register dated 2026-02-10"
+    },
+    "turnover.fy2024": {
+      "value": 18400000,
+      "raw": "Revenue FY2024: SGD 18,400,000",
+      "confidence": 0.97,
+      "source": "DOC-05#p6",
+      "conflict": false,
+      "note": ""
+    },
+    "screening.hits": {
+      "value": [
+        {
+          "name": "Arun Menon",
+          "list": "WorldCheck",
+          "record": "WC-5530921",
+          "listed name": "Arun K. Menon",
+          "listed dob": "1958-09-17",
+          "listed nationality": "MY"
+        }
+      ],
+      "raw": "Potential match: Arun Menon | List: WorldCheck | Record: WC-5530921 | Listed name: Arun K. Menon | Listed DOB: 1958-09-17 | Listed nationality: MY",
+      "confidence": 0.9,
+      "source": "DOC-06#p1",
+      "conflict": false,
+      "note": ""
+    },
+    "adverse_media": {
+      "value": "none found",
+      "raw": "Adverse media: none found",
+      "confidence": 0.97,
+      "source": "DOC-06#p1",
+      "conflict": false,
+      "note": ""
+    },
+    "trade.countries": {
+      "value": [
+        "SG",
+        "MY",
+        "ID",
+        "AE"
+      ],
+      "raw": "Trade countries: SG, MY, ID, AE",
+      "confidence": 0.88,
+      "source": "DOC-07#p3",
+      "conflict": false,
+      "note": "Taken from prior assessment; not re-evidenced this cycle."
+    },
+    "trade.new_lane": {
+      "value": "AE (Jebel Ali) added 2026",
+      "raw": "New trade lane: AE (Jebel Ali) added 2026",
+      "confidence": 0.97,
+      "source": "DOC-07#p3",
+      "conflict": false,
+      "note": ""
+    },
+    "activity.monthly_inflow": {
+      "value": 1500000,
+      "raw": "Expected monthly inflow: SGD 1,500,000",
+      "confidence": 0.97,
+      "source": "DOC-07#p3",
+      "conflict": false,
+      "note": ""
+    },
+    "ubo.1.sow": {
+      "value": "Founder equity built from operating profits since 2015",
+      "raw": "UBO1 source of wealth: Founder equity built from operating profits since 2015",
+      "confidence": 0.97,
+      "source": "DOC-07#p3",
+      "conflict": false,
+      "note": ""
+    },
+    "directors.prior": {
+      "value": [
+        "Lim Wei Jie",
+        "Arun Menon"
+      ],
+      "raw": "Prior directors: Lim Wei Jie; Arun Menon",
+      "confidence": 0.97,
+      "source": "DOC-07#p3",
+      "conflict": false,
+      "note": ""
+    },
+    "turnover.fy2025": {
+      "value": 21100000,
+      "raw": "Revenue FY2025: SGD 21,100,000",
+      "confidence": 0.97,
+      "source": "DOC-08#p7",
+      "conflict": false,
+      "note": ""
+    },
+    "ubo.2.owner": {
+      "value": {
+        "name": "Tan Hui Min",
+        "nationality": "SG",
+        "pct_of_holding": 100
+      },
+      "raw": "Member: Tan Hui Min | Nationality: SG | 100%",
+      "confidence": 0.97,
+      "source": "DOC-09#p1",
+      "conflict": false,
+      "note": ""
+    },
+    "ubo.2.sow": {
+      "value": "Sale of residential property (Orchard Boulevard) in 2021, SGD 6,200,000",
+      "raw": "Source of wealth: Sale of residential property (Orchard Boulevard) in 2021, SGD 6,200,000",
+      "confidence": 0.97,
+      "source": "DOC-10#p1",
+      "conflict": false,
+      "note": ""
+    }
+  },
+  "maker_inputs": {
+    "edits": {
+      "ubo.2": {
+        "value": {
+          "name": "Seacrest Holdings Ltd (BVI)",
+          "pct": 45
+        },
+        "note": "Confirmed against client-signed register dated 2026-02-10"
+      }
+    },
+    "dispositions": {
+      "screening.hits": "False positive. DOB 1971-04-02 vs listed 1958-09-17; nationality IN vs listed MY."
+    }
+  },
+  "checker_returns": [
+    {
+      "q_id": "Q7",
+      "comment": "Seacrest (BVI) holds 45%. Identify its ultimate owners and their source of wealth.",
+      "resolved": true
+    }
+  ],
+  "documents": {
+    "DOC-01": {
+      "type": "ACRA BizFile",
+      "date": "2026-10-29",
+      "source": "ACRA"
+    },
+    "DOC-02": {
+      "type": "Constitution",
+      "date": "2019-03-02",
+      "source": "DMS"
+    },
+    "DOC-03": {
+      "type": "Shareholder register",
+      "date": "2026-02-10",
+      "source": "DMS"
+    },
+    "DOC-04": {
+      "type": "Director IDs (2)",
+      "date": "2025-11-04",
+      "source": "DMS"
+    },
+    "DOC-05": {
+      "type": "Audited FS FY2024",
+      "date": "2025-05-30",
+      "source": "DMS"
+    },
+    "DOC-06": {
+      "type": "Screening report",
+      "date": "2026-10-30",
+      "source": "WorldCheck"
+    },
+    "DOC-07": {
+      "type": "Prior assessment 2025",
+      "date": "2025-11-12",
+      "source": "DMS"
+    },
+    "DOC-08": {
+      "type": "Audited FS FY2025",
+      "date": "2026-04-28",
+      "source": "Maker upload"
+    },
+    "DOC-09": {
+      "type": "Seacrest register of members",
+      "date": "2026-11-04",
+      "source": "Maker upload"
+    },
+    "DOC-10": {
+      "type": "SoW declaration + sale deed",
+      "date": "2026-11-04",
+      "source": "Maker upload"
+    }
+  }
+}

@@ -1,0 +1,174 @@
+
+KYC renewal  RA-2026-0412  Halcyon Marine Logistics Pte Ltd
+prior rating MEDIUM · due 2026-11-15 · maker Priya Nair · checker Daniel Tan
+
+[30 Oct 09:00] SCHEDULER RENEWAL_DUE
+           {"due": "2026-11-15"}
+           MASTER   DISPATCH  rules R1  status NEW → DISCOVERY
+                    why: New renewal case with no evidence yet, so start with document discovery.
+                    → T01 Agent 1 · Discovery SG_CORP_MED_v4
+
+[30 Oct 09:01] Agent 1 · Discovery  T01
+           DOC-01 ACRA BizFile             2026-10-29  ✓
+           DOC-02 Constitution             2019-03-02  ✓
+           DOC-03 Shareholder register     2026-02-10  ✓
+           DOC-04 Director IDs (2)         2025-11-04  ✓
+           DOC-05 Audited FS FY2024        2025-05-30  stale
+           DOC-06 Screening report         2026-10-30  ✓
+           DOC-07 Prior assessment 2025    2025-11-12  ✓
+           missing: Audited financial statements · Latest FS on file is FY2024 (FYE 2024-12-31), 22 months before the review date; limit is 18.
+           MASTER   DISPATCH  rules R2  status DISCOVERY → INGESTION
+                    why: 7 documents found; 1 non-identity item(s) missing or stale. Ingest now and request the rest from the maker in parallel.
+                    → T02 Agent 2 · Ingestion ['DOC-01', 'DOC-02', 'DOC-03', 'DOC-04', 'DOC-05', 'DOC-06', 'DOC-07']
+                    → T03 Agent 5 · Notification DOC_REQUEST
+
+[30 Oct 09:01] Agent 5 · Notification  T03
+           to Priya Nair · Maker (RM)
+           subject: RA-2026-0412 Halcyon Marine: documents needed
+           MASTER   wait · 1 dispatched task(s) still running; re-evaluate when they return.
+[30 Oct 09:05] Agent 2 · Ingestion  T02
+           entity.name              Halcyon Marine Logistics Pte Ltd                             0.97  DOC-01#p1
+           entity.uen               201534812K                                                   0.97  DOC-01#p1
+           entity.activity          Freight forwarding and ship chartering (SSIC 52291)          0.97  DOC-01#p1
+           directors                ['Lim Wei Jie (SG)', 'Arun Menon (IN)']                      0.97  DOC-01#p2
+           ubo.1                    {'name': 'Lim Wei Jie', 'pct': 55}                           0.96  DOC-03#p1
+           ubo.2                    {'name': 'Seacrest Holdings Ltd (BVI)', 'pct': 45}           0.62  DOC-03#p1
+           turnover.fy2024          18400000                                                     0.97  DOC-05#p6
+           screening.hits           [1 items]                                                    0.90  DOC-06#p1
+           adverse_media            none found                                                   0.97  DOC-06#p1
+           trade.countries          ['SG', 'MY', 'ID', 'AE']                                     0.88  DOC-07#p3
+           trade.new_lane           AE (Jebel Ali) added 2026                                    0.97  DOC-07#p3
+           activity.monthly_inflow  1500000                                                      0.97  DOC-07#p3
+           ubo.1.sow                Founder equity built from operating profits since 2015       0.97  DOC-07#p3
+           directors.prior          ['Lim Wei Jie', 'Arun Menon']                                0.97  DOC-07#p3
+           flag LOW_CONF_FIELD ubo.2
+           flag SCREENING_HIT screening.hits
+           MASTER   DISPATCH  rules R3  guardrails G1,G2  status INGESTION → IN_DRAFT
+                    why: 14 fields extracted. Draft all answers now and carry 2 open item(s) forward as flags for the maker.
+                    → T04 Agent 3 · Drafting (draft) ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8']
+
+[30 Oct 09:08] Agent 3 · Drafting  T04
+           Q1 [2] Halcyon Marine Logistics Pte Ltd (201534812K) carries on Freight forwarding and ship chartering (SSIC 52291).
+           Q2 [3] Lim Wei Jie holds 55%; Seacrest Holdings Ltd (BVI) holds 45% (percentage not confirmed). Total 100%. NEEDS_HUMAN
+           Q3 [3] Trade corridors: SG, MY, ID, AE. Highest country risk is ID (level 3 on country list).
+           Q4 [2] Turnover SGD 18.4m in FY2024. FY2025 audited statements not yet received. STALE_EVIDENCE
+           Q5 [2] Expected inflows of SGD 1.5m a month (SGD 18.0m a year), consistent with turnover of SGD 18.4m.
+           Q6 [-] 1 potential match on Arun Menon; disposition pending. NEEDS_HUMAN
+           Q7 [2] Lim Wei Jie: founder equity built from operating profits since 2015.
+           Q8 [2] No director changes since last review. AE (Jebel Ali) added 2026.
+           rating PROVISIONAL · has unscored answers = 16/40
+           MASTER   DISPATCH  rules R4  guardrails G1,G2  status IN_DRAFT → WITH_MAKER
+                    why: Draft complete but 2 item(s) need a human, so it goes to the maker before review.
+                    → T05 Agent 5 · Notification MAKER_REVIEW
+
+[30 Oct 09:08] Agent 5 · Notification  T05
+           to Priya Nair · Maker (RM)
+           subject: RA-2026-0412 Halcyon Marine: 3 items to resolve
+           MASTER   wait · Notification delivered. No state change; waiting on the recipient.
+[02 Nov 14:20] MAKER     MAKER_SUBMIT
+           uploads DOC-08 Audited FS FY2025
+           confirms ubo.2 = {'name': 'Seacrest Holdings Ltd (BVI)', 'pct': 45}
+           dispositions screening.hits: False positive. DOB 1971-04-02 vs listed 1958-09-17; nationality IN vs listed MY.
+           MASTER   DISPATCH  rules R5  status WITH_MAKER → INGESTION
+                    why: Maker added 1 document(s). Ingest only those, then redraft only the affected questions (Q2, Q4, Q5, Q6, Q7). Nothing else is re-run.
+                    → T06 Agent 2 · Ingestion ['DOC-08']
+                    → T07 Agent 3 · Drafting (redraft) ['Q2', 'Q4', 'Q5', 'Q6', 'Q7'] after T06
+
+[02 Nov 14:24] Agent 2 · Ingestion  T06
+           turnover.fy2025          21100000                                                     0.97  DOC-08#p7
+           MASTER   wait · 1 dispatched task(s) still running; re-evaluate when they return.
+[02 Nov 14:27] Agent 3 · Drafting  T07
+           Q2 [3] Lim Wei Jie holds 55%; Seacrest Holdings Ltd (BVI) holds 45% (confirmed by maker against signed register). Total 100%.
+           Q4 [2] Turnover SGD 21.1m in FY2025, up 15% from SGD 18.4m in FY2024.
+           Q5 [2] Expected inflows of SGD 1.5m a month (SGD 18.0m a year), consistent with turnover of SGD 21.1m.
+           Q6 [1] 1 potential match on Arun Menon dismissed by the maker: False positive. DOB 1971-04-02 vs listed 1958-09-17; nationality IN vs listed MY.
+           Q7 [2] Lim Wei Jie: founder equity built from operating profits since 2015.
+           rating MEDIUM · 2+3+3+2+2+1+2+2 = 17/40
+           MASTER   DISPATCH  rules R4b  status INGESTION → AUTO_REVIEW
+                    why: Draft has no open items; run the automated review.
+                    → T08 Agent 4 · Review ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8']
+
+[02 Nov 14:29] Agent 4 · Review  T08
+           FAIL  checks {'C1': '8/8', 'C2': 'fail', 'C4': 'UBO sum 100%', 'C6': 'pass'}
+           MEDIUM Q6 C2: Disposition must state the screening list name and record ID. (policy 7.2.4, evidence on file: True)
+           MASTER   DISPATCH  rules R7  status AUTO_REVIEW → IN_DRAFT
+                    why: 1 MEDIUM/LOW finding(s) and the facts to fix them are already on file. Let Agent 3 fix them, then re-run Agent 4.
+                    → T09 Agent 3 · Drafting (redraft) ['Q6']
+                    → T10 Agent 4 · Review ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8'] after T09
+
+[02 Nov 14:32] Agent 3 · Drafting  T09
+           Q6 [1] WorldCheck record WC-5530921 (Arun K. Menon) dismissed by the maker as a false positive: DOB 1971-04-02 vs listed 1958-09-17; nationality IN vs listed MY.
+           rating MEDIUM · 2+3+3+2+2+1+2+2 = 17/40
+           MASTER   wait · 1 dispatched task(s) still running; re-evaluate when they return.
+[02 Nov 14:34] Agent 4 · Review  T10
+           PASS  checks {'C1': '8/8', 'C2': 'pass', 'C4': 'UBO sum 100%', 'C6': 'pass'}
+           MASTER   DISPATCH  rules R6  guardrails G5  status IN_DRAFT → WITH_CHECKER
+                    why: Automated review passed with no findings and the maker has submitted. Only a checker can approve, so route to the checker.
+                    → T11 Agent 5 · Notification CHECKER_REVIEW
+
+[02 Nov 14:34] Agent 5 · Notification  T11
+           to Daniel Tan · Checker (Compliance)
+           subject: RA-2026-0412 Halcyon Marine: ready for approval
+           MASTER   wait · Notification delivered. No state change; waiting on the recipient.
+[03 Nov 10:05] CHECKER   CHECKER_RETURN
+           returns Q7: Seacrest (BVI) holds 45%. Identify its ultimate owners and their source of wealth.
+           MASTER   DISPATCH  rules R8  status WITH_CHECKER → RETURNED
+                    why: The checker asked for facts that are not on file. Only the maker can get them, so prepare a suggested redraft and notify the maker.
+                    → T12 Agent 3 · Drafting (suggest) ['Q7']
+                    → T13 Agent 5 · Notification CHECKER_RETURN
+
+[03 Nov 10:05] Agent 5 · Notification  T13
+           to Priya Nair · Maker (RM)
+           subject: RA-2026-0412 Halcyon Marine: returned by checker
+           MASTER   wait · 1 dispatched task(s) still running; re-evaluate when they return.
+[03 Nov 10:08] Agent 3 · Drafting  T12
+           Q7 [-] Seacrest Holdings Ltd (BVI) is owned by [__] ([nationality], [__]%). Their wealth derives from [__], evidenced by [document]. SUGGESTION
+              needs: Seacrest Holdings Ltd (BVI) register of members; Source-of-wealth declaration with supporting evidence
+           MASTER   wait · Suggested redraft prepared; waiting on the maker.
+[04 Nov 16:40] MAKER     MAKER_SUBMIT
+           uploads DOC-09 Seacrest register of members
+           uploads DOC-10 SoW declaration + sale deed
+           MASTER   DISPATCH  rules R5  status RETURNED → INGESTION
+                    why: Maker added 2 document(s). Ingest only those, then redraft only the affected questions (Q7). Nothing else is re-run.
+                    → T14 Agent 2 · Ingestion ['DOC-09', 'DOC-10']
+                    → T15 Agent 3 · Drafting (redraft) ['Q7'] after T14
+
+[04 Nov 16:44] Agent 2 · Ingestion  T14
+           ubo.2.owner              {'name': 'Tan Hui Min', 'nationality': 'SG', 'pct_of_holding 0.97  DOC-09#p1
+           ubo.2.sow                Sale of residential property (Orchard Boulevard) in 2021, SG 0.97  DOC-10#p1
+           MASTER   wait · 1 dispatched task(s) still running; re-evaluate when they return.
+[04 Nov 16:47] Agent 3 · Drafting  T15
+           Q7 [2] Lim Wei Jie (55%): founder equity built from operating profits since 2015. Tan Hui Min (SG) owns 100% of Seacrest Holdings Ltd (BVI) (45%): sale of residential property (Orchard Boulevard) in 2021, SGD 6,200,000.
+           rating MEDIUM · 2+3+3+2+2+1+2+2 = 17/40
+           MASTER   DISPATCH  rules R4b  status INGESTION → AUTO_REVIEW
+                    why: Draft has no open items; run the automated review.
+                    → T16 Agent 4 · Review ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8']
+
+[04 Nov 16:49] Agent 4 · Review  T16
+           PASS  checks {'C1': '8/8', 'C2': 'pass', 'C4': 'UBO sum 100%', 'C6': 'pass'}
+           MASTER   DISPATCH  rules R6  guardrails G5  status AUTO_REVIEW → WITH_CHECKER
+                    why: Automated review passed with no findings and the maker has submitted. Only a checker can approve, so route to the checker.
+                    → T17 Agent 5 · Notification CHECKER_REVIEW
+
+[04 Nov 16:49] Agent 5 · Notification  T17
+           to Daniel Tan · Checker (Compliance)
+           subject: RA-2026-0412 Halcyon Marine: ready for approval
+           MASTER   wait · Notification delivered. No state change; waiting on the recipient.
+[05 Nov 09:15] CHECKER   CHECKER_APPROVE
+           approves rating MEDIUM; next review 2027-11-15
+           MASTER   CLOSE  rules R9  guardrails G5  status WITH_CHECKER → CLOSED
+                    why: Checker approved. Close the case, archive the audit pack and schedule the next review.
+                    → T18 Agent 5 · Notification CASE_CLOSED
+
+[05 Nov 09:15] Agent 5 · Notification  T18
+           to Priya Nair · Maker (RM)
+           subject: RA-2026-0412 Halcyon Marine: approved and closed
+           to Daniel Tan · Checker (Compliance)
+           subject: RA-2026-0412 Halcyon Marine: approved and closed
+           MASTER   wait · Notification delivered. No state change; waiting on the recipient.
+
+──────── result
+status CLOSED · rating MEDIUM (17/40) · approved by Daniel Tan · next review 2027-11-15
+23 master decisions · 18 agent tasks · 4 human actions · 7 notifications
+files: /home/claude/kyc_agents/out/audit_log.jsonl, final_case.json, outbox.json
+
