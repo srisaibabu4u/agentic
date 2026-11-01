@@ -36,19 +36,3 @@ Call submit_result with this object as "result":
   "flags": [ { "code": "LOW_CONF_FIELD" | "CONFLICT" | "SCREENING_HIT" | "UNREADABLE_DOC", "ref": "<field_id or doc_id>", "detail": "" } ]
 }
 Raise LOW_CONF_FIELD for every field under 0.80, and SCREENING_HIT for every unresolved potential match in a screening report.
-
-<!-- USER MESSAGE TEMPLATE -->
-<task>{{task_envelope_json}}</task>
-
-<field_schema>
-{{field_schema_json}}
-</field_schema>
-
-<documents>
-<document id="{{doc_id}}" type="{{doc_type}}" date="{{doc_date}}">
-{{ocr_text_with_page_markers}}
-</document>
-...
-</documents>
-
-Extract the fields. Only fill fields that these documents can support.

@@ -1,14 +1,11 @@
 """Claude Messages API client for live mode.
 
-Two ways to call Claude:
-
-* run_agent: the agentic loop every live agent uses. The agent gets its system
-  prompt from prompts/<agent>.md, a task brief, its read-only tools and a
-  submit_result tool. It works until it submits a result that passes the
-  agent's checks, or until its turn budget runs out (then the result is
-  FAILED and the master's retry guardrail, G4, takes over). Every tool call is
-  kept in result["agent_trace"] for the audit log.
-* call_json: one request, one JSON reply. Used by the master's shadow mode.
+run_agent is the agentic loop every live agent and the live master use. The
+agent gets its system prompt from prompts/<agent>.md, a task brief, its
+read-only tools and a submit_result tool. It works until it submits a result
+that passes its checks, or until its turn budget runs out (then the result is
+FAILED and the master's retry guardrail, G4, or the playbook fallback takes
+over). Every tool call is kept in result["agent_trace"] for the audit log.
 """
 from __future__ import annotations
 
@@ -19,7 +16,6 @@ from pathlib import Path
 from typing import Callable
 
 PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
-SPLIT = "<!-- USER MESSAGE TEMPLATE -->"
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 AGENTIC = """
@@ -41,7 +37,7 @@ SUBMIT = {"name": "submit_result",
 
 
 def load_system_prompt(name: str, **vars) -> str:
-    text = (PROMPTS / name).read_text(encoding="utf-8").split(SPLIT)[0]
+    text = (PROMPTS / name).read_text(encoding="utf-8")
     for k, v in vars.items():
         text = text.replace("{{" + k + "}}", str(v))
     return text.strip()
@@ -149,25 +145,3 @@ class LLM:
     @staticmethod
     def _failed(error: str, trace: dict) -> dict:
         return {"status": "FAILED", "error": error, "agent_trace": trace}
-
-    # ------------------------------------------------------------ single call
-    def call_json(self, prompt_file: str, payload: dict, required_keys: tuple = (), **vars) -> dict:
-        system = load_system_prompt(prompt_file, **vars)
-        messages = [{"role": "user", "content":
-                     "<task_payload>\n" + json.dumps(payload, indent=2, default=str) +
-                     "\n</task_payload>\nReturn JSON only, following the output format in your instructions."}]
-        last_err = ""
-        for attempt in range(2):
-            resp = self._create(system=system, messages=messages)
-            text = "".join(b.text for b in resp.content if b.type == "text")
-            try:
-                out = parse_json(text)
-                missing = [k for k in required_keys if k not in out]
-                if missing:
-                    raise ValueError(f"missing keys {missing}")
-                return out
-            except Exception as e:  # one repair attempt with the error shown to the model
-                last_err = str(e)
-                messages += [{"role": "assistant", "content": resp.content},
-                             {"role": "user", "content": f"Your reply was not valid: {last_err}. Return the corrected JSON only."}]
-        return {"status": "FAILED", "error": f"invalid JSON after repair: {last_err}"}

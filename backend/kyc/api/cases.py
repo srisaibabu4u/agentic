@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse

@@ -63,7 +63,7 @@ def specs():
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS)
-def test_generated_case_runs_to_maker(specs, scenario, tmp_path, capsys):
+def test_generated_case_runs_to_maker(specs, scenario, tmp_path):
     for spec in [s for s in specs if s["case"]["scenario"] == scenario]:
         e = Engine(case_config(spec), tmp_path)
         e.start()
@@ -76,7 +76,7 @@ def test_generated_case_runs_to_maker(specs, scenario, tmp_path, capsys):
             assert sorted(e.case.answers) == [f"Q{i}" for i in range(1, 9)]
 
 
-def test_happy_case_closes_with_maker_and_checker(specs, tmp_path, capsys):
+def test_happy_case_closes_with_maker_and_checker(specs, tmp_path):
     spec = next(s for s in specs if s["case"]["scenario"] == "happy")
     t0 = spec["case"]["opened_at"]
     script = {"maker": [{"at": (t0 + timedelta(hours=3)).isoformat(), "event": "MAKER_SUBMIT",
@@ -89,7 +89,7 @@ def test_happy_case_closes_with_maker_and_checker(specs, tmp_path, capsys):
     assert e.case.rating["band"] in ("LOW", "MEDIUM", "HIGH")
 
 
-def test_halcyon_output_unchanged(tmp_path, capsys):
+def test_halcyon_output_unchanged(tmp_path):
     Engine(PROTO, tmp_path).run()
     for name in ("final_case.json", "outbox.json"):
         assert json.loads((tmp_path / name).read_text()) == json.loads((ROOT / "out" / name).read_text()), name
@@ -99,7 +99,7 @@ def test_halcyon_output_unchanged(tmp_path, capsys):
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS)
-def test_live_result_checks_accept_offline_results(specs, scenario, tmp_path, capsys, monkeypatch):
+def test_live_result_checks_accept_offline_results(specs, scenario, tmp_path, monkeypatch):
     """The checks a live agent's submission must pass hold for every deterministic result, in every scenario."""
     from orchestrator import agents as ag
     real, errors = ag.BaseAgent.run, []

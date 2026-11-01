@@ -16,7 +16,7 @@ from pathlib import Path
 from .agents import build_agents
 from .master import Master
 from .master_agent import AgenticMaster
-from .models import A1, A2, A3, A4, A5, AGENT_NAMES, Case, Event
+from .models import A1, A2, A3, A4, A5, Case, Event
 from . import lessons, report, state
 
 AGENT_MINUTES = {A1: 1, A2: 4, A3: 3, A4: 2, A5: 0}

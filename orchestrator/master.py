@@ -16,7 +16,7 @@ from datetime import datetime
 from .models import A1, A2, A3, A4, A5, STATUS_ON_DISPATCH, Case, Decision, Event, Task
 
 MAX_RETRIES = 3
-LOW_CONFIDENCE = 0.80
+LOW_CONFIDENCE = 0.80   # G1: below this a field needs a person to confirm it
 
 
 def retry_key(agent: str, scope: dict) -> str:

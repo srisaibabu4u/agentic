@@ -44,19 +44,3 @@ Call submit_result with this object as "result":
   "checks_summary": { "C1": "8/8", ... },
   "recomputed_rating": { "total", "band", "matches_draft": true|false }
 }
-
-<!-- USER MESSAGE TEMPLATE -->
-<task>{{task_envelope_json}}</task>
-
-<answers draft="{{draft_version}}">
-{{answers_json}}
-</answers>
-
-<fields>{{extracted_fields_json}}</fields>
-<maker_inputs>{{maker_inputs_json}}</maker_inputs>
-<questions>{{questions_with_guidance}}</questions>
-<policy_rules version="{{policy_version}}">{{policy_rules}}</policy_rules>
-<scoring_guide>{{scoring_guide}}</scoring_guide>
-<rating_bands>{{rating_bands}}</rating_bands>
-
-Review the answers.

@@ -39,21 +39,3 @@ Call submit_result with this object as "result":
   "source_errors": [ { "source", "error" } ],
   "confidence": <0-1, your confidence the manifest is complete>
 }
-
-<!-- USER MESSAGE TEMPLATE -->
-<task>{{task_envelope_json}}</task>
-
-<client>
-client_id: {{client_id}}
-legal_name: {{legal_name}}
-uen: {{uen}}
-segment: {{segment}}
-prior_assessment_date: {{prior_assessment_date}}
-known_parties: {{directors_and_ubos_from_prior_assessment}}
-</client>
-
-<checklist name="{{checklist_id}}">
-{{required_document_list}}
-</checklist>
-
-Review due date: {{due_date}}. Build the document manifest.

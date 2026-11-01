@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from typing import Any
 
 STATUSES = ["NEW", "DISCOVERY", "INGESTION", "IN_DRAFT", "WITH_MAKER", "AUTO_REVIEW",
             "WITH_CHECKER", "RETURNED", "APPROVED", "CLOSED"]
