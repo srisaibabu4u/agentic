@@ -18,7 +18,7 @@ def apply_result(case: Case, cfg: dict, agent: str, res: dict) -> None:
     if res.get("status") == "FAILED":
         return
     if agent == A1:
-        c.manifest = res
+        c.manifest = {k: v for k, v in res.items() if k != "agent_trace"}  # the trace stays on the task
         store = {d["doc_id"]: d for d in cfg["document_store"]} | c.docs
         for f in res["found"]:
             c.docs[f["doc_id"]] = {**store[f["doc_id"]], "fresh": f["fresh"]}
