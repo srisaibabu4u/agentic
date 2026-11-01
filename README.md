@@ -130,6 +130,7 @@ orchestrator/
   master.py                 guardrails + routing rules (the brain)
   engine.py                 event loop; the only code that writes to the case; simulated humans
   master_agent.py           live master: the master agent, guardrails in code, playbook comparison
+  lessons.py                lessons from closed cases: what becomes one, which tasks get it
   agents.py                 A1..A5: offline logic + live task briefs
   toolkit.py                live agents' read-only tools and result checks
   llm.py                    Claude client: the agentic tool-use loop
@@ -189,10 +190,12 @@ Set `KYC_DATABASE_URL` (or copy `.env.example` to `.env`) to point somewhere els
 
 | Group | Tables |
 |---|---|
-| Reference | `users`, `clients`, `related_parties`, `checklists`, `checklist_items`, `questionnaires`, `questions`, `rating_bands`, `country_risk`, `policy_rules`, `doc_item_fields`, `field_questions` |
+| Reference | `users`, `clients`, `related_parties`, `checklists`, `checklist_items`, `questionnaires`, `questions`, `rating_bands`, `country_risk`, `industry_risk`, `policy_rules`, `doc_item_fields`, `field_questions` |
 | Evidence | `documents`, `extracted_fields`, `screening_hits`, `dispositions` |
 | Workflow | `cases`, `case_events` (append-only, also the master's inbox), `master_decisions` (append-only), `agent_tasks` (queue claimed with `FOR UPDATE SKIP LOCKED`) |
 | Output | `answers` (versioned), `review_findings`, `checker_returns`, `ratings` (versioned), `notifications` |
+| Learning | `lessons` (advice from closed cases; proposed, then approved by a team lead) |
+| Security | `login_failures` |
 
 Four-eyes control is enforced in the database as well as by guardrail G5. A CHECK stops a case's maker and checker being the same user. Triggers require the right roles and allow only the case's assigned checker to approve a final rating.
 
@@ -399,3 +402,32 @@ scope so the retry repeats the same work.
 
 `--shadow` is gone. The master agent now records the playbook's decision next to its own on every step, which
 replaces it.
+
+## Phase 7: learning from past cases
+
+Agents now learn from closed cases, under human control ([orchestrator/lessons.py](orchestrator/lessons.py)):
+
+1. **Collect.** When the master closes a case, the review findings the agents had to fix themselves (from every
+   review round) and the checker's returns become **proposed** lessons. Data problems are not lessons: a HIGH
+   finding, an open item or stale evidence is fixed by the maker on that case. If a later case hits the same
+   problem, that case is added to the lesson's evidence instead of creating a new lesson.
+2. **Approve.** A team lead (admin) reviews them on the **Lessons** page (`/lessons`, API `GET /lessons`,
+   `POST /lessons/{id}/approve|reject|retire`). They can reword a lesson as a general rule before approving it.
+   For example, Halcyon's checker return names Seacrest. Rejecting or retiring a lesson needs a note.
+3. **Use.** Code gives approved lessons to the drafting and review tasks for the questions they concern. A
+   lesson from a review finding goes to drafting; a checker-return lesson goes to drafting and review. At most 5
+   go to any one task, most often seen first. Live agents read them with `get_lessons`, and the master agent can see them
+   all. Offline drafting applies them like a reviewer note it already knows about.
+
+| Lesson from Halcyon | For | Effect when approved |
+|---|---|---|
+| Q6: Disposition must state the screening list name and record ID. (policy 7.2.4) | drafting | Q6 is right first time, so the R7 redraft and second review are skipped |
+| Q7: a checker returned this answer with: "Seacrest (BVI) holds 45%. Identify its ultimate owners…" | drafting, review | reword it as a general rule before approving |
+
+**Safety.** Lessons are advice, never authority. They cannot change policy, the guardrails or the result checks.
+A lesson nobody approved is never used. Each task's inputs record exactly which lessons it was given, and each
+lesson counts how often it was used (`times_used`). With no approved lessons, every run is the same as before.
+
+**Fixed in this phase.** A case page's live stream kept a database transaction open for up to 5 minutes, and
+browsers reconnect at once. Any open page therefore blocked reseeding and migrations. The stream now ends the
+transaction before it starts streaming.

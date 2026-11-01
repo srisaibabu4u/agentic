@@ -33,7 +33,9 @@ from `explain_decisions`, not your own guess. With a live master, also say who d
 - orchestrator/toolkit.py live agents' read-only tools and result checks
 - orchestrator/llm.py     the agentic tool-use loop (run_agent)
 - orchestrator/engine.py  event loop, only code that writes the case
+- orchestrator/lessons.py lessons from closed cases (proposed → approved by a team lead → given to agents)
 - prompts/                agent system prompts
 - tests/test_routing.py   run after any change to master.py
 - tests/test_agentic.py   run after any change to agents.py, toolkit.py or llm.py
 - tests/test_master_agent.py  run after any change to master.py or master_agent.py
+- tests/test_lessons.py   run after any change to lessons.py
