@@ -128,3 +128,19 @@ test('replay the closed Halcyon case step by step', async ({ page }) => {
   await page.getByRole('button', { name: 'Close replay' }).click()
   await expect(page.locator('.replay')).toHaveCount(0)
 })
+
+test('closing Halcyon proposed lessons; the team lead rewords and approves one', async ({ page }) => {
+  await page.goto('/lessons')
+  await actAs(page, 'priya.nair')
+  await page.getByRole('link', { name: 'Lessons' }).click()
+  const q6 = page.locator('.card').filter({ hasText: 'policy 7.2.4' })
+  await expect(q6).toContainText('RA-2026-0412')
+  await expect(q6.getByRole('button', { name: 'Approve' })).toHaveCount(0) // a maker can read, not review
+
+  await actAs(page, 'grace.lim')
+  await page.getByRole('link', { name: 'Lessons' }).click()
+  await q6.getByLabel(/as the agents will read it/).fill('Q6: name the screening list and the record ID when dismissing a match (policy 7.2.4).')
+  await q6.getByRole('button', { name: 'Approve' }).click()
+  await page.getByRole('tab', { name: /In use/ }).click()
+  await expect(page.locator('.card').filter({ hasText: 'when dismissing a match' })).toContainText('approved by Grace Lim')
+})
