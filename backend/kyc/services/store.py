@@ -2,9 +2,10 @@
 
 The master and agents keep working on orchestrator.models.Case, unchanged:
 
-    load_config(db, row) -> cfg dict      same shape as data/sample_case.json
+    load_config(db, row) -> cfg dict      same shape as data/sample_case.json, plus approved lessons
     load_case(db, row, cfg) -> Case       rebuild the Case from the tables
     save_case(db, row, case, ...)         write any changes back
+    propose_lessons(db, row)              lessons from a closed case, for a team lead to approve
 
 save_case only writes what changed. Answers and ratings get a new version
 instead of being overwritten, and review findings are marked current or
@@ -19,6 +20,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from orchestrator import lessons
 from orchestrator.models import Case, Task
 
 from ..config import BUSINESS_TZ_HOURS, UPLOADS_DIR
@@ -67,13 +69,13 @@ def clear_config_cache() -> None:
 
 def load_config(db: Session, row: m.Case) -> dict:
     """The reference data the master and agents read, in the prototype's JSON shape.
-    Only the client's documents are read every time; the rest is static reference data and cached."""
+    The client's documents and the approved lessons are read every time; the rest is static and cached."""
     key = (row.checklist_id, row.questionnaire_id)
     if key not in _REFERENCE:
         _REFERENCE[key] = _load_reference(db, row)
     store = db.scalars(select(m.Document).where(m.Document.client_id == row.client_id, m.Document.case_id.is_(None))
                        .order_by(m.Document.id))
-    return {**_REFERENCE[key], "document_store": [doc_dict(d) for d in store]}
+    return {**_REFERENCE[key], "document_store": [doc_dict(d) for d in store], "lessons": approved_lessons(db)}
 
 
 def _load_reference(db: Session, row: m.Case) -> dict:
@@ -357,3 +359,47 @@ def _save_tasks(db, row, case, decision_id):
         if t.task_id not in have:
             db.add(m.AgentTask(task_ref=t.task_id, case_id=row.id, decision_id=decision_id, agent=t.agent,
                                scope=t.scope, inputs=t.inputs, depends_on=t.depends_on, retry=t.retry))
+
+
+# ============================================================== lessons
+def lesson_ref(lesson_id: int) -> str:
+    return f"L-{lesson_id:04d}"
+
+
+def lesson_dict(x: m.Lesson) -> dict:
+    """What an agent is given: no evidence or review details."""
+    return {"id": lesson_ref(x.id), "q_id": x.q_id, "agents": list(x.agents), "text": x.text,
+            "occurrences": x.occurrences, "kind": x.kind, "policy_ref": x.policy_ref}
+
+
+def approved_lessons(db: Session) -> list[dict]:
+    return [lesson_dict(x) for x in db.scalars(select(m.Lesson).where(m.Lesson.status == "APPROVED").order_by(m.Lesson.id))]
+
+
+def propose_lessons(db: Session, row: m.Case) -> list[m.Lesson]:
+    """Turn a closed case's review findings (every round, not only the last) and checker returns into lessons.
+    A problem already known adds this case as evidence; a new one is proposed for a team lead to approve.
+    Rejected and retired lessons keep counting evidence but are not proposed again."""
+    findings = [finding_dict(f) for f in db.scalars(
+        select(m.ReviewFinding).where(m.ReviewFinding.case_id == row.id).order_by(m.ReviewFinding.id))]
+    returns = [{"q_id": r.q_id, "comment": r.comment} for r in db.scalars(
+        select(m.CheckerReturn).where(m.CheckerReturn.case_id == row.id).order_by(m.CheckerReturn.id))]
+    touched = []
+    for c in lessons.candidates(row.case_ref, findings, returns):
+        x = db.scalar(select(m.Lesson).where(m.Lesson.key == c["key"]).with_for_update())
+        if x is None:
+            x = m.Lesson(key=c["key"], kind=c["kind"], q_id=c["q_id"], agents=c["agents"], policy_ref=c["policy_ref"],
+                         text=c["text"], evidence=c["evidence"])
+            db.add(x)
+        elif row.case_ref not in {e["case_ref"] for e in x.evidence}:
+            x.evidence = [*x.evidence, *c["evidence"]]
+            x.occurrences += 1
+        touched.append(x)
+    db.flush()
+    return touched
+
+
+def mark_lessons_used(db: Session, refs: list[str]) -> None:
+    ids = [int(r.split("-")[1]) for r in refs]
+    if ids:
+        db.execute(update(m.Lesson).where(m.Lesson.id.in_(ids)).values(times_used=m.Lesson.times_used + 1))
