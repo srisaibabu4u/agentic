@@ -54,6 +54,7 @@ export const RULES: Record<string, string> = {
   G4: 'Three failures on the same item: stop retrying and escalate',
   G5: 'Four-eyes: only the checker approves, and maker and checker differ',
   G6: 'Fewer than 5 business days to the due date: copy the team lead',
+  JUDGEMENT: 'No playbook rule fitted: the master agent decided, within the guardrails, and gave its reason',
   WAIT_PENDING: 'Other dispatched tasks are still running; decide when they return',
   A5_ACK: 'Notification delivered; nothing changes until the recipient acts',
 }

@@ -186,6 +186,10 @@ def timeline(ref: str, db: Session = Depends(get_db), full: bool = Query(False, 
                                  "rules_matched": d.rules_matched, "guardrails_triggered": d.guardrails_triggered,
                                  "rationale": d.rationale, "decided_at": d.decided_at, "config_version": d.config_version,
                                  "state": d.state_snapshot,
+                                 # master agent: who decided, and whether it chose what the playbook would
+                                 "decided_by": (d.shadow or {}).get("decided_by", "playbook"),
+                                 "agrees_with_playbook": (d.shadow or {}).get("agrees_with_playbook"),
+                                 "playbook": (d.shadow or {}).get("playbook"),
                                  "tasks": [_task(x) for x in sorted(tasks.values(), key=lambda x: x.id) if x.decision_id == d.id]}
         out.append(entry)
     return {"case_ref": r.case_ref, "status": r.status, "events": out}
