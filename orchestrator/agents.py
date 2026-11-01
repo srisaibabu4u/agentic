@@ -376,6 +376,8 @@ class DraftingAgent(BaseAgent):
 
     def offline(self, task, case, now):
         mode, notes = task.scope["mode"], task.inputs.get("notes", [])
+        # approved lessons are applied like a note the reviewer would otherwise raise (they never set "resolves")
+        advice = notes + [{"q_id": x["q_id"], "issue": x["text"]} for x in task.inputs.get("lessons", [])]
         out = []
         for q in task.scope["questions"]:
             if mode == "suggest":
@@ -383,7 +385,7 @@ class DraftingAgent(BaseAgent):
                 out.append({"q_id": q, "answer": s["answer"], "score": None, "citations": [], "flags": ["SUGGESTION"],
                             "confidence": 0.5, "evidence_needed": s["evidence_needed"]})
                 continue
-            a = self.answer(q, case, notes)
+            a = self.answer(q, case, advice)
             cited = [c for c in a["cites"] if not c.startswith("maker.")]
             conf = min([case.fields[c]["confidence"] for c in cited if c in case.fields] or [0.9])
             flags = self._flags(case, cited) + a.get("extra_flags", [])

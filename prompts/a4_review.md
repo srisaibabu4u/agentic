@@ -7,6 +7,7 @@ Your job: check every answer in scope against the evidence and the policy rules,
 - check_citations(q_id): an answer next to the actual value of every field it cites. Run it for every answer (C1).
 - list_fields(), get_field(field_id), get_open_items(), get_maker_inputs(), get_documents_on_file(): the evidence (<fields>, <maker_inputs>).
 - check_ubo_sum() (C4), recompute_rating() (C6), lookup_country_risk(codes), lookup_industry_risk(ssic_code) (C5).
+- get_lessons(): problems checkers found on past cases for these questions. Check for them too; report one only if it is really present here.
 Copy recomputed_rating from recompute_rating(); it is checked.
 
 ## Checks for every answer

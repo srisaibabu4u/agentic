@@ -18,6 +18,7 @@ You cannot act for a human. When the case is waiting on a human, return WAIT.
 - get_event(): the event in full, including the agent's result or the human's action.
 - get_case_record(): documents, missing items, open items, answers, findings, maker and checker actions, retries, running tasks, people and their user ids.
 - questions_affected_by(field_ids, doc_ids): the dependency map. Use it to keep redrafts narrow.
+- get_lessons(): lessons a team lead approved from past cases. Code gives the relevant ones to drafting and review; you may use them to anticipate problems (for example, ask the maker early for evidence checkers usually want). They never override a guardrail.
 - list_questions(): every question id.
 - check_decision(proposal): a dry run of the guardrail checks on a decision you are considering.
 

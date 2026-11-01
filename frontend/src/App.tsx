@@ -1,7 +1,8 @@
-import { Link, Route, Routes } from 'react-router-dom'
+import { Link, NavLink, Route, Routes } from 'react-router-dom'
 import { useUser } from './userContext'
 import CasePage from './pages/CasePage'
 import Dashboard from './pages/Dashboard'
+import LessonsPage from './pages/LessonsPage'
 import LoginPage from './pages/LoginPage'
 
 function UserMenu() {
@@ -25,6 +26,10 @@ export default function App() {
           <img src="/favicon.svg" alt="" />
           KYC Renewals <small>client risk assessment · dummy data</small>
         </Link>
+        <nav className="row small">
+          <NavLink to="/" end>Cases</NavLink>
+          <NavLink to="/lessons">Lessons</NavLink>
+        </nav>
         <span className="header-spacer" />
         <UserMenu />
       </header>
@@ -32,6 +37,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/cases/:ref" element={<CasePage />} />
+          <Route path="/lessons" element={<LessonsPage />} />
           <Route path="*" element={<p>Page not found. <Link to="/">Back to cases</Link></p>} />
         </Routes>
       </main>

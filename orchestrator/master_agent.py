@@ -289,6 +289,9 @@ class AgenticMaster:
                                           "Use it to keep redrafts narrow.",
                  {"field_ids": {"type": "array", "items": {"type": "string"}},
                   "doc_ids": {"type": "array", "items": {"type": "string"}}}, questions_for),
+            Tool("get_lessons", "Approved lessons from past cases. Code gives the relevant ones to drafting and "
+                                "review tasks; use them to anticipate problems. Advice only.", {},
+                 lambda: self.cfg.get("lessons", [])),
             Tool("list_questions", "All questionnaire question ids.", {},
                  lambda: [q["q_id"] for q in self.cfg["questionnaire"]["questions"]]),
             Tool("check_decision", "Dry run: the guardrail errors a proposed decision would get. [] means allowed.",

@@ -148,3 +148,11 @@ export interface MakerSubmitBody {
   field_edits: Record<string, { value: unknown; note: string }>
   dispositions: Record<string, string>
 }
+
+export type LessonStatus = 'PROPOSED' | 'APPROVED' | 'REJECTED' | 'RETIRED'
+export interface Lesson {
+  id: string; q_id: string; agents: string[]; text: string; occurrences: number
+  kind: 'REVIEW_FINDING' | 'CHECKER_RETURN'; policy_ref: string | null; status: LessonStatus
+  evidence: { case_ref: string; source: string; detail: string }[]; times_used: number
+  proposed_at: string; reviewed_by: string | null; reviewed_at: string | null; review_note: string | null
+}

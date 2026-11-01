@@ -11,7 +11,9 @@ The steps mirror orchestrator.engine.Engine.handle():
 4. decide: Master (the rule playbook) or, with a live master, AgenticMaster (Claude decides,
    code enforces the guardrails). The case stays locked while it decides, so a slow model call
    holds up only this case; other engines skip it and work on other cases;
-5. store the decision, queue its tasks, update the case, mark the event processed.
+5. give approved lessons to the drafting and review tasks they concern (orchestrator.lessons);
+6. store the decision, queue its tasks, update the case, mark the event processed;
+7. when the decision closes the case, propose lessons from it for a team lead to approve.
 
 Agent results are applied to the case by the worker when the agent finishes
 (step 3), exactly like Engine.run_task, so by the time the master sees an
@@ -24,7 +26,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from orchestrator import state
+from orchestrator import lessons, state
 from orchestrator.master import Master
 from orchestrator.master_agent import AgenticMaster
 from orchestrator.models import Event
@@ -75,6 +77,7 @@ def process_event(db: Session, ev: m.CaseEvent, llm=None) -> m.MasterDecision:
     prev = case.status
     decision = (AgenticMaster(cfg, llm) if llm else Master(cfg)).decide(case, event, now)
     case.status = decision.new_status
+    store.mark_lessons_used(db, lessons.attach(decision.tasks, cfg["lessons"]))
     case.pending += decision.tasks
 
     md = m.MasterDecision(case_id=row.id, event_id=ev.id, decision=decision.decision, prev_status=prev,
@@ -85,6 +88,8 @@ def process_event(db: Session, ev: m.CaseEvent, llm=None) -> m.MasterDecision:
     db.add(md)
     db.flush()
     store.save_case(db, row, case, decision_id=md.id, actor_id=ev.actor_id)
+    if decision.decision == "CLOSE":
+        store.propose_lessons(db, row)
     ev.processed_at = datetime.now(timezone.utc)
     db.flush()
     return md

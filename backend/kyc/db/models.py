@@ -496,6 +496,36 @@ class Notification(Base):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+# ===================================================================== learning
+LESSON_STATUSES = ("PROPOSED", "APPROVED", "REJECTED", "RETIRED")
+
+
+class Lesson(Base):
+    """Advice learned from closed cases (orchestrator/lessons.py). Proposed by the system when a case closes,
+    used only once a team lead approves it. The same problem seen again adds evidence instead of a new lesson."""
+    __tablename__ = "lessons"
+    __table_args__ = (CheckConstraint(_in("status", LESSON_STATUSES), name="status"),
+                      CheckConstraint("kind IN ('REVIEW_FINDING', 'CHECKER_RETURN')", name="kind"))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(160), unique=True)       # what makes two lessons the same
+    kind: Mapped[str] = mapped_column(String(16))
+    q_id: Mapped[str] = mapped_column(String(8))
+    agents: Mapped[list[str]] = mapped_column(ARRAY(String(16)))     # who is given it, e.g. A3_DRAFT
+    policy_ref: Mapped[str | None] = mapped_column(String(16))
+    text: Mapped[str] = mapped_column(Text)                          # as proposed, or as edited on approval
+    status: Mapped[str] = mapped_column(String(16), default="PROPOSED", server_default="PROPOSED", index=True)
+    evidence: Mapped[list] = mapped_column(JSONB, default=list)     # [{case_ref, source, detail}]
+    occurrences: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    times_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    proposed_at: Mapped[datetime] = _now()
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_note: Mapped[str | None] = mapped_column(Text)
+
+    reviewer: Mapped[User | None] = relationship()
+
+
 # ===================================================================== security
 class LoginFailure(Base):
     """Failed sign-ins, for the per-username attempt limit (shared by every API replica) and as an audit trail."""
