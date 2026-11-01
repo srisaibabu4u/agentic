@@ -23,10 +23,12 @@ running scripts when the user asks to start, inspect or act on a case.
 4. `checker_return` or `checker_approve` on the user's instruction.
 
 When explaining, quote the master's rules and guardrails (R1–R9, G1–G6) and rationale
-from `explain_decisions`, not your own guess.
+from `explain_decisions`, not your own guess. With a live master, also say who decided
+(`decided_by`) and, for `JUDGEMENT`, what the playbook would have done (`playbook`).
 
 ## Code
-- orchestrator/master.py  routing rules + guardrails
+- orchestrator/master.py  routing rules + guardrails (the playbook; the offline master)
+- orchestrator/master_agent.py  live master: Claude decides, guardrails enforced in code
 - orchestrator/agents.py  the five agents (offline logic + live task briefs)
 - orchestrator/toolkit.py live agents' read-only tools and result checks
 - orchestrator/llm.py     the agentic tool-use loop (run_agent)
@@ -34,3 +36,4 @@ from `explain_decisions`, not your own guess.
 - prompts/                agent system prompts
 - tests/test_routing.py   run after any change to master.py
 - tests/test_agentic.py   run after any change to agents.py, toolkit.py or llm.py
+- tests/test_master_agent.py  run after any change to master.py or master_agent.py

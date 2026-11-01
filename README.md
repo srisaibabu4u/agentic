@@ -27,12 +27,14 @@ To use Claude for some or all agents:
 pip install anthropic
 export ANTHROPIC_API_KEY=...
 python run.py --live A3,A4          # drafting and review use Claude; the others stay offline
-python run.py --live all --shadow   # every agent live, and an LLM master shadows the rules
+python run.py --live master         # the master agent decides every step; the agents stay offline
+python run.py --live all            # every agent and the master use Claude
 ```
 
 - `--model` or the `KYC_MODEL` environment variable picks the model. The default is `claude-sonnet-5-5`.
 - In live mode each agent works autonomously: it uses read-only tools to gather and check evidence, then submits a result that is checked against that evidence. See [Phase 5](#phase-5-autonomous-agents).
-- The live loop is tested with a scripted fake client (`tests/test_agentic.py`). It has not been run against the API from this environment.
+- With `master` (or `all`) the master is an agent too and decides every step, within guardrails enforced in code. See [Phase 6](#phase-6-the-master-agent).
+- The live loops are tested with scripted fake clients (`tests/test_agentic.py`, `tests/test_master_agent.py`). They have not been run against the API from this environment.
 
 ## Use it from VS Code chat (agent mode)
 
@@ -114,7 +116,7 @@ CHECKER approves ─► MASTER closes, schedules 2027-11-15 ─► A5 notify bot
 
 Each decision is a `Decision` containing `decision`, `new_status`, `tasks[]`, `rules_matched`, `guardrails_triggered` and `rationale`.
 
-Routing is plain code on purpose. The same state always produces the same route, and compliance can read and test it. With `--shadow`, an LLM using `prompts/master.md` makes the same decision independently and the run logs whether it agreed with the rules. That gives you a safe way to evaluate an LLM master before trusting it with routing.
+Offline, routing is plain code. The same state always produces the same route, and compliance can read and test it. These rules are also the master agent's playbook in live mode (see [Phase 6](#phase-6-the-master-agent)), and every decision it makes is compared with what they would have done.
 
 ## Layout
 
@@ -127,6 +129,7 @@ samples/                    maker uploads for the interactive demo
 orchestrator/
   master.py                 guardrails + routing rules (the brain)
   engine.py                 event loop; the only code that writes to the case; simulated humans
+  master_agent.py           live master: the master agent, guardrails in code, playbook comparison
   agents.py                 A1..A5: offline logic + live task briefs
   toolkit.py                live agents' read-only tools and result checks
   llm.py                    Claude client: the agentic tool-use loop
@@ -357,3 +360,42 @@ submission and token count is kept in the task result's `agent_trace` (`agent_ta
 
 Requests opt in to server-side refusal fallbacks (`fallbacks: "default"`). The offline agents are unchanged, and
 tests check that every deterministic result also passes the live result checks, across every seeded scenario.
+
+## Phase 6: the master agent
+
+With `--live master` (or `--live all`) the master is an agent, and it makes every decision
+([orchestrator/master_agent.py](orchestrator/master_agent.py)):
+
+1. **Look.** On each event it reads the event and the case with read-only tools: `get_event`, `get_case_record`,
+   `questions_affected_by` (the dependency map) and `list_questions`.
+2. **Decide.** It follows the playbook (R1–R9, [prompts/master.md](prompts/master.md)). When no rule fits, or a rule
+   would clearly be wrong for the case, it decides itself and marks the decision `JUDGEMENT` with its reason.
+3. **Check.** `check_decision` gives a dry run of the guardrails. `submit_result` applies them for real, and a
+   decision that breaks one goes back to the agent with the reason.
+
+**Guardrails in code.** The agent cannot get past these, whatever it proposes:
+
+| | Rejected |
+|---|---|
+| G1 / G2 | sending the case to the checker while open items remain; reviewing, or accepting a maker submission, with an open screening hit |
+| G3 | sending a HIGH finding anywhere but the maker |
+| G4 | a fourth attempt by an agent at the same work, or a fourth redraft of a question |
+| G5 | closing without a checker approval, or with maker = checker; ignoring an approval; going to the checker before a passing review of a submitted draft |
+| Shape | unknown agents, documents, questions, people or templates; `depends_on` that points nowhere; a status that would leave the case stuck |
+
+Code also sets what must be exact: real task ids, the team-lead copy for G6, the retry counts behind G4 and the
+list of guardrails that applied. Two events have only one legal outcome, a result while other tasks are still
+running and a notification receipt. Both are decided by code and cost no model call. If the agent gives no
+allowed decision within its turn budget, the playbook decides and the decision is marked `playbook_fallback`.
+
+**Audit.** Each decision stores who decided, the agent's tool trace and what the playbook would have done
+(`master_decisions.shadow`; `meta` in `out/audit_log.jsonl`). The timeline shows an `agent` chip, or
+`agent: own judgement` when the agent chose differently from the playbook (hover over the chip to see the
+playbook's choice).
+
+**Fixed in this phase.** G4 used to count failures per task id. Every retry gets a new id, so an agent that
+kept failing was retried forever. Failures are now counted per agent and scope, and a failed result carries its
+scope so the retry repeats the same work.
+
+`--shadow` is gone. The master agent now records the playbook's decision next to its own on every step, which
+replaces it.
