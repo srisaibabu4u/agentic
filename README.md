@@ -31,8 +31,8 @@ python run.py --live all --shadow   # every agent live, and an LLM master shadow
 ```
 
 - `--model` or the `KYC_MODEL` environment variable picks the model. The default is `claude-sonnet-5-5`.
-- In live mode each agent sends its system prompt from `prompts/` plus a JSON task payload, then validates the JSON it gets back.
-- The live path has been checked for payload building and prompt loading only. It has not been run against the API from this environment.
+- In live mode each agent works autonomously: it uses read-only tools to gather and check evidence, then submits a result that is checked against that evidence. See [Phase 5](#phase-5-autonomous-agents).
+- The live loop is tested with a scripted fake client (`tests/test_agentic.py`). It has not been run against the API from this environment.
 
 ## Use it from VS Code chat (agent mode)
 
@@ -127,7 +127,9 @@ samples/                    maker uploads for the interactive demo
 orchestrator/
   master.py                 guardrails + routing rules (the brain)
   engine.py                 event loop; the only code that writes to the case; simulated humans
-  agents.py                 A1..A5: offline logic + live payload builders
+  agents.py                 A1..A5: offline logic + live task briefs
+  toolkit.py                live agents' read-only tools and result checks
+  llm.py                    Claude client: the agentic tool-use loop
   llm.py                    Claude call, JSON parse, one repair retry
   models.py                 Case, Task, Event, Decision
   report.py                 console output
@@ -322,3 +324,36 @@ request, so deactivating an account signs it out immediately.
 - **`frontend`:** lint, type check and build.
 - **`e2e`:** Playwright in Chrome.
 - **`docker`:** builds and starts the whole stack, then smoke-tests it through nginx.
+
+## Phase 5: autonomous agents
+
+In live mode (`--live A1,...` or `all`, on `run.py`, `kyc.worker` or the MCP `start_case`) each specialised agent
+runs its own tool-use loop on Claude instead of answering one pre-built prompt:
+
+1. **Plan.** The agent gets its system prompt, a short task brief (task envelope, case id, due date) and its tools.
+2. **Gather.** It decides what to look up and calls read-only tools ([orchestrator/toolkit.py](orchestrator/toolkit.py)).
+3. **Check.** It verifies its own conclusions with deterministic checking tools before relying on them.
+4. **Submit.** It calls `submit_result`. The result is checked against the evidence. Any errors go back to the agent
+   as a tool error, and it fixes them and resubmits.
+
+| Agent | Tools | What a submission must pass |
+|---|---|---|
+| A1 Discovery | `get_checklist`, `search_dms`, `fetch_registry`, `run_screening`, `search_crm`, `check_freshness` | every checklist item found or missing; doc ids exist; `fresh` agrees with the freshness rule; stale items listed as missing |
+| A2 Ingestion | `list_documents`, `read_document`, `find_in_document`, `get_field_schema` | field ids in the schema; source is `<doc in scope>#p<page>`; `raw` is quoted exactly from that document; confidence < 0.80 is flagged |
+| A3 Drafting | `get_questions`, `get_notes_to_resolve`, `list_fields`, `get_field`, `get_open_items`, `lookup_country_risk`, `lookup_industry_risk`, `compute_rating`, … | exactly the questions in scope; citations exist; scores 1–5 or null with `NEEDS_HUMAN`; open items flagged |
+| A4 Review | `get_answers_in_scope`, `check_citations`, `check_ubo_sum`, `recompute_rating`, `get_policy_rules`, … | valid checks and severities; verdict consistent with the findings; recomputed rating correct |
+| A5 Notification | `get_recipients`, `get_case_summary`, `get_action_items` | one message per recipient in order; case id, link and every action item in the body |
+
+**What stays fixed.** Agents still never write to the case and never call each other. The engine applies their
+results and the deterministic master routes (R1–R9, G1–G6). An agent that does not submit an accepted result
+within its turn budget returns `FAILED`, and the retry guardrail G4 takes over. Every tool call, rejected
+submission and token count is kept in the task result's `agent_trace` (`agent_tasks.result` in the database).
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `KYC_MODEL` | `claude-sonnet-5-5` | Model for every live agent |
+| `KYC_EFFORT` | `medium` | Reasoning effort (`low` … `max`) |
+| `KYC_MAX_TURNS` | `20` | Turn budget per agent task |
+
+Requests opt in to server-side refusal fallbacks (`fallbacks: "default"`). The offline agents are unchanged, and
+tests check that every deterministic result also passes the live result checks, across every seeded scenario.

@@ -27,7 +27,10 @@ from `explain_decisions`, not your own guess.
 
 ## Code
 - orchestrator/master.py  routing rules + guardrails
-- orchestrator/agents.py  the five agents (offline logic + live payloads)
+- orchestrator/agents.py  the five agents (offline logic + live task briefs)
+- orchestrator/toolkit.py live agents' read-only tools and result checks
+- orchestrator/llm.py     the agentic tool-use loop (run_agent)
 - orchestrator/engine.py  event loop, only code that writes the case
 - prompts/                agent system prompts
 - tests/test_routing.py   run after any change to master.py
+- tests/test_agentic.py   run after any change to agents.py, toolkit.py or llm.py
