@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from .. import logs
 from ..db import SessionLocal
 from ..db import models as m
-from . import actions, auth, cases, workflow
+from . import actions, auth, cases, lessons, workflow
 from .deps import current_user, get_db, wall_clock
 
 CORS_ORIGINS = [o for o in os.getenv("KYC_CORS_ORIGINS", "").split(",") if o]  # the UI is same-origin via its proxy
@@ -66,6 +66,7 @@ def create_app() -> FastAPI:
     app.include_router(cases.router)
     app.include_router(actions.router)
     app.include_router(workflow.router)
+    app.include_router(lessons.router)
 
     @app.get("/health", tags=["meta"])
     def health(db: Session = Depends(get_db)) -> dict:
