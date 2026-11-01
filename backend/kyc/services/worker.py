@@ -131,8 +131,8 @@ def _save_notifications(db: Session, row: m.Case, task: m.AgentTask, res: dict) 
 
 # ============================================================== loop
 def step(db: Session, clock: Clock = wall_clock, name: str | None = None, llm=None,
-         live_agents: frozenset[str] = frozenset()) -> bool:
-    if engine.process_next(db) is not None:
+         live_agents: frozenset[str] = frozenset(), live_master: bool = False) -> bool:
+    if engine.process_next(db, llm if live_master else None) is not None:
         db.commit()
         return True
     task = claim_task(db, name or worker_name())

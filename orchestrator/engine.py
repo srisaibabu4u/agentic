@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .agents import build_agents
 from .master import Master
+from .master_agent import AgenticMaster
 from .models import A1, A2, A3, A4, A5, AGENT_NAMES, Case, Event
 from . import report, state
 
@@ -23,13 +24,12 @@ AGENT_MINUTES = {A1: 1, A2: 4, A3: 3, A4: 2, A5: 0}
 
 class Engine:
     def __init__(self, cfg: dict, out_dir: Path, llm=None, live_agents: set | None = None,
-                 shadow_master: bool = False, verbose: bool = False):
+                 live_master: bool = False, verbose: bool = False):
         self.cfg, self.out = cfg, out_dir
         m = cfg["case"]
         self.case = Case(m["case_id"], m)
-        self.master = Master(cfg)
+        self.master = AgenticMaster(cfg, llm) if live_master and llm else Master(cfg)
         self.agents = build_agents(cfg, llm, live_agents or set())
-        self.llm, self.shadow = llm, shadow_master
         self.now = datetime.fromisoformat(m["start_time"])
         self.queue: deque[Event] = deque()
         self.done: set[str] = set()
@@ -71,19 +71,9 @@ class Engine:
         self.r.decision(self.now, c, decision, before)
         self.log("master_decision", trigger=ev.type + (":" + ev.source if ev.type == "AGENT_RESULT" else ""),
                  state=c.snapshot(), decision=decision.to_dict())
-        if self.shadow and self.llm and decision.decision != "WAIT":
-            self.shadow_check(ev, decision)
-
-    def shadow_check(self, ev: Event, decision):
-        """Ask the LLM master the same question and record whether it agrees with the rules."""
-        out = self.llm.call_json("master.md", {"case_record": self.case.snapshot(), "event": ev.__dict__,
-                                               "dependency_map": self.cfg["dependency_map"]},
-                                 ("decision", "tasks"), bank_name="Example Bank")
-        rules_agents = sorted(t.agent for t in decision.tasks)
-        llm_agents = sorted(t.get("agent", "?") for t in out.get("tasks", []))
-        agree = rules_agents == llm_agents
-        self.r.shadow(agree, llm_agents, out.get("rationale", ""))
-        self.log("master_shadow", agrees=agree, llm=out)
+        if decision.meta.get("decided_by") in ("master_agent", "playbook_fallback"):
+            self.r.shadow(decision.meta.get("agrees_with_playbook", True),
+                          decision.meta.get("playbook", {}).get("agents", []), decision.meta["decided_by"])
 
     def next_ready_task(self):
         ready = [t for t in self.case.pending if all(d in self.done for d in t.depends_on)]

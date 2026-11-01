@@ -110,9 +110,12 @@ class Printer:
         if self.v:
             print(c(DIM, ind + json.dumps(res, default=str)[:1500]))
 
-    def shadow(self, agree, llm_agents, why):
-        mark = c(GREEN, "agrees") if agree else c(RED, f"DISAGREES (LLM wanted {llm_agents})")
-        print(c(DIM, f"                    LLM shadow master {mark}: {why[:160]}"))
+    def shadow(self, agree, playbook_agents, decided_by):
+        if decided_by == "playbook_fallback":
+            print(c(RED, "                    master agent gave no allowed decision; the playbook decided"))
+            return
+        mark = c(GREEN, "same as the playbook") if agree else c(AMBER, f"own judgement (playbook: {playbook_agents})")
+        print(c(DIM, f"                    decided by the master agent, {mark}"))
 
     def stuck(self, case):
         print(c(RED, f"\nNo agent work pending and no scripted human action for status {case.status}. Stopping."))
