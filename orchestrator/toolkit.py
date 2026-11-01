@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Callable
 
+from .master import LOW_CONFIDENCE
 from .models import Case, Task
 
 
@@ -164,7 +165,7 @@ def ingestion_tools(agent, task: Task, case: Case, now: datetime) -> list[Tool]:
         Tool("find_in_document", "Case-insensitive regex search in one document; returns matching lines with page refs.",
              {"doc_id": _str("document id"), "pattern": _str("Python regex")}, find_in_document, ("doc_id", "pattern")),
         Tool("get_field_schema", "The field ids to extract. turnover.fy{yr} means one field per financial year.", {},
-             lambda: {"fields": schema, "low_confidence_threshold": 0.80,
+             lambda: {"fields": schema, "low_confidence_threshold": LOW_CONFIDENCE,
                       "maker_confirmed_fields": [k for k, v in case.fields.items() if v.get("source") == "maker"]}),
     ]
 
@@ -193,8 +194,8 @@ def validate_ingestion(agent, task, case, now, res: dict) -> list[str]:
             text = _norm(case.docs[m.group(1)]["text"])
             if not all(_norm(p)[:60] in text for p in str(f["raw"]).split(";") if p.strip()):
                 errs.append(f"{fid}: raw text is not found in {m.group(1)}; quote the document exactly")
-        if conf < 0.80 and not any(fl.get("code") == "LOW_CONF_FIELD" and fl.get("ref") == fid for fl in flags):
-            errs.append(f"{fid}: confidence {conf} < 0.80 needs a LOW_CONF_FIELD flag")
+        if conf < LOW_CONFIDENCE and not any(fl.get("code") == "LOW_CONF_FIELD" and fl.get("ref") == fid for fl in flags):
+            errs.append(f"{fid}: confidence {conf} < {LOW_CONFIDENCE} needs a LOW_CONF_FIELD flag")
         f.setdefault("conflict", False)
         f.setdefault("note", "")
     for fl in flags:

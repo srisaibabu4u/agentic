@@ -15,7 +15,6 @@ import subprocess
 import sys
 from contextlib import redirect_stdout
 from pathlib import Path
-from typing import Any
 
 try:  # MCP Python SDK 2.x
     from mcp.server.mcpserver import MCPServer as _Server
@@ -212,7 +211,7 @@ def checker_approve(case_id: str, comment: str = "", final_rating: str | None = 
 
 @mcp.tool()
 def get_prompt(agent: str) -> str:
-    """System prompt and user template for 'master', 'a1'..'a5'."""
+    """System prompt for 'master', 'a1'..'a5'."""
     if agent not in AGENT_PROMPTS:
         raise ToolError(f"agent must be one of {list(AGENT_PROMPTS)}")
     return (ROOT / "prompts" / AGENT_PROMPTS[agent]).read_text()

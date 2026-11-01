@@ -33,27 +33,3 @@ Write one message per recipient, in the order get_recipients() gives. Call submi
   "action_items": ["..."],
   "due": "<ISO8601>"
 }
-
-<!-- USER MESSAGE TEMPLATE -->
-<task>{{task_envelope_json}}</task>
-
-template: {{template_id}}
-recipient: {{recipient_name}} ({{recipient_role}}), {{recipient_channels}}
-escalate_cc: {{team_lead_or_null}}
-
-<case>
-case_id: {{case_id}}
-client: {{legal_name}}
-due_date: {{due_date}}
-link: {{case_url}}
-</case>
-
-<items>
-{{action_items_json}}
-</items>
-
-<context>
-{{short_context_for_template}}
-</context>
-
-Write and send the notification.

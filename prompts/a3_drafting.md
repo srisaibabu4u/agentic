@@ -36,28 +36,3 @@ Call submit_result with this object as "result":
   ],
   "rating": { "total": <int>, "max": <int>, "working": "<sum shown>", "band": "LOW|MEDIUM|HIGH|PROVISIONAL" }
 }
-
-<!-- USER MESSAGE TEMPLATE -->
-<task mode="{{mode}}">{{task_envelope_json}}</task>
-
-<questions>
-{{questions_in_scope_with_guidance}}
-</questions>
-
-<fields version="{{extract_version}}">
-{{extracted_fields_json}}
-</fields>
-
-<maker_inputs>
-{{maker_edits_and_dispositions_json}}
-</maker_inputs>
-
-<notes_to_resolve>
-{{reviewer_or_checker_notes_json}}
-</notes_to_resolve>
-
-<scoring_guide>{{scoring_guide}}</scoring_guide>
-<rating_bands>{{rating_bands}}</rating_bands>
-<reference_lists>{{country_and_industry_risk_lists}}</reference_lists>
-
-Write the answers.

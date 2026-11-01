@@ -13,7 +13,7 @@ import argparse
 import hashlib
 import shutil
 from collections import Counter
-from datetime import date, datetime
+from datetime import date
 
 import bcrypt
 from sqlalchemy import func, select, text

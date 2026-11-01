@@ -137,7 +137,7 @@ orchestrator/
   llm.py                    Claude call, JSON parse, one repair retry
   models.py                 Case, Task, Event, Decision
   report.py                 console output
-prompts/                    system prompt + user template for the master and each agent
+prompts/                    system prompts for the master and each agent
 data/sample_case.json       dummy client, document store, checklist, policy, scripted maker/checker actions
 tests/test_routing.py       9 routing tests
 out/                        audit_log.jsonl, final_case.json, outbox.json, sample_run.txt

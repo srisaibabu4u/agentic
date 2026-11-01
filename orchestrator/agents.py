@@ -20,6 +20,7 @@ from datetime import date, datetime
 
 from . import toolkit as tk
 from .llm import LLM
+from .master import LOW_CONFIDENCE
 from .models import A1, A2, A3, A4, A5, Case, Task
 
 
@@ -217,7 +218,7 @@ class IngestionAgent(BaseAgent):
                     val, raw = m.group(1).strip(), m.group(0)
                 fields[fid] = {"value": val, "raw": raw, "confidence": conf,
                                "source": f"{doc_id}#p{self._page(text, m.start())}", "conflict": False, "note": note}
-                if conf < 0.80:
+                if conf < LOW_CONFIDENCE:
                     flags.append({"code": "LOW_CONF_FIELD", "ref": fid, "detail": note})
         return {"status": "DONE" if fields else "FAILED", "fields": fields, "flags": flags}
 
@@ -417,7 +418,6 @@ class ReviewAgent(BaseAgent):
 
     def offline(self, task, case, now):
         findings, checks = [], {}
-        policy = self.cfg["questionnaire"]["policy"]
         ans = case.answers
         n_ok = 0
         for q in task.scope["questions"]:
@@ -488,7 +488,7 @@ class NotificationAgent(BaseAgent):
             lines.append(f"Case {case.case_id}, {M['legal_name']}, due {_d(M['due_date']).strftime('%d %b %Y')}.")
             lines.append(M["case_url"])
             if i.get("escalate_cc"):
-                lines.append(f"Due in fewer than 5 business days.")
+                lines.append("Due in fewer than 5 business days.")
             action = {"DOC_REQUEST": "documents needed", "MAKER_REVIEW": f"{len(i['items'])} items to resolve",
                       "CHECKER_REVIEW": "ready for approval", "CHECKER_RETURN": "returned by checker",
                       "CASE_CLOSED": "approved and closed", "ESCALATION": "action needed"}[i["template"]]
