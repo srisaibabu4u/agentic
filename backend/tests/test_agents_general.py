@@ -96,3 +96,22 @@ def test_halcyon_output_unchanged(tmp_path, capsys):
     got = [json.loads(line) for line in (tmp_path / "audit_log.jsonl").read_text().splitlines()]
     want = [json.loads(line) for line in (ROOT / "out" / "audit_log.jsonl").read_text().splitlines()]
     assert got == want
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS)
+def test_live_result_checks_accept_offline_results(specs, scenario, tmp_path, capsys, monkeypatch):
+    """The checks a live agent's submission must pass hold for every deterministic result, in every scenario."""
+    from orchestrator import agents as ag
+    real, errors = ag.BaseAgent.run, []
+
+    def checked(self, task, case, now):
+        res = real(self, task, case, now)
+        errors.extend(f"{task.task_id}: {e}" for e in self.validate(task, case, now, json.loads(json.dumps(res))))
+        return res
+
+    monkeypatch.setattr(ag.BaseAgent, "run", checked)
+    for spec in [s for s in specs if s["case"]["scenario"] == scenario]:
+        e = Engine(case_config(spec), tmp_path)
+        e.start()
+        e.advance(use_script=False)
+    assert errors == []
