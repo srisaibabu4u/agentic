@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy import any_, func, select, update
 
 from orchestrator import agents as proto_agents
+from orchestrator import master_agent
 from orchestrator.engine import Engine
 
 from kyc.db import models as m
@@ -48,12 +49,12 @@ def only_halcyon(db) -> m.Case:
     return row
 
 
-def drive(db, script: dict) -> None:
+def drive(db, script: dict, **kw) -> None:
     """Run the worker; whenever Halcyon waits on a person, play that person's next scripted step."""
     row = db.scalar(select(m.Case).where(m.Case.case_ref == "RA-2026-0412"))
     script = {k: deque(v) for k, v in script.items()}
     while True:
-        worker.run_until_idle(db, worker.sim_clock)
+        worker.run_until_idle(db, worker.sim_clock, **kw)
         db.refresh(row)
         if row.status == "CLOSED" or not script.get(row.waiting_on):
             return
@@ -169,3 +170,33 @@ def test_every_status_change_is_on_the_workflow_map(db):
         seen.add(key)
     assert not problems, "not on the workflow map: " + "; ".join(sorted(problems))
     assert len(seen) >= 10, seen
+
+
+def test_master_agent_runs_every_seeded_case(db, monkeypatch):
+    """With a live master, the master agent decides on the database too. A stand-in that proposes what the
+    playbook would must pass the guardrails on every decision and reach the same outcome for every case."""
+    real, calls = master_agent.AgenticMaster.decide, []
+
+    class PlaybookLLM:
+        def run_agent(self, prompt_file, brief, tools, validate, **vars):
+            proposal = master_agent.to_proposal(calls[-1].reference)
+            assert validate(proposal) == [], brief["event"]
+            return {**proposal, "agent_trace": {"turns": 1}}
+
+    def decide(self, case, ev, now):
+        calls.append(self)
+        return real(self, case, ev, now)
+
+    monkeypatch.setattr(master_agent.AgenticMaster, "decide", decide)
+    drive(db, PROTO["human_script"], llm=PlaybookLLM(), live_master=True)
+
+    halcyon = db.scalar(select(m.Case).where(m.Case.case_ref == "RA-2026-0412"))
+    assert (halcyon.status, halcyon.final_rating) == ("CLOSED", "MEDIUM")
+    for row in db.scalars(select(m.Case).where(m.Case.scenario != "halcyon_sample")):
+        last = db.scalars(select(m.MasterDecision).where(m.MasterDecision.case_id == row.id,
+                                                         m.MasterDecision.decision != "WAIT")
+                          .order_by(m.MasterDecision.id.desc())).first()
+        assert row.waiting_on == "maker" and EXPECTED_STOP[row.scenario] in last.rules_matched, row.case_ref
+    metas = [md.shadow for md in db.scalars(select(m.MasterDecision))]
+    assert metas and all(x and x["decided_by"] in ("master_agent", "code") for x in metas)
+    assert all(x["agrees_with_playbook"] for x in metas if x["decided_by"] == "master_agent")
