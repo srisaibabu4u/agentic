@@ -17,7 +17,7 @@ from .agents import build_agents
 from .master import Master
 from .master_agent import AgenticMaster
 from .models import A1, A2, A3, A4, A5, AGENT_NAMES, Case, Event
-from . import report, state
+from . import lessons, report, state
 
 AGENT_MINUTES = {A1: 1, A2: 4, A3: 3, A4: 2, A5: 0}
 
@@ -67,6 +67,7 @@ class Engine:
         decision = self.master.decide(c, ev, self.now)
         before = c.status
         c.status = decision.new_status
+        lessons.attach(decision.tasks, self.cfg.get("lessons", []))  # approved lessons, if the config has any
         c.pending += decision.tasks
         self.r.decision(self.now, c, decision, before)
         self.log("master_decision", trigger=ev.type + (":" + ev.source if ev.type == "AGENT_RESULT" else ""),
@@ -74,6 +75,12 @@ class Engine:
         if decision.meta.get("decided_by") in ("master_agent", "playbook_fallback"):
             self.r.shadow(decision.meta.get("agrees_with_playbook", True),
                           decision.meta.get("playbook", {}).get("agents", []), decision.meta["decided_by"])
+
+    def lesson_candidates(self) -> list[dict]:
+        """The lessons this run would propose: every review's findings and the checker returns."""
+        findings = [f for a in self.audit if a["kind"] == "agent_result" and a["agent"] == A4
+                    for f in a["result"].get("findings", [])]
+        return lessons.candidates(self.case.case_id, findings, self.case.checker_returns)
 
     def next_ready_task(self):
         ready = [t for t in self.case.pending if all(d in self.done for d in t.depends_on)]
