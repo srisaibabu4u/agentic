@@ -5,8 +5,10 @@ contract in prompts/<agent>.md). Two implementations sit behind each one:
 
 * offline (default): deterministic Python that follows the same rules as the
   prompt, so the whole workflow runs with no API key and is repeatable;
-* live: the system prompt from prompts/*.md plus a user message built from the
-  task, sent to Claude; the JSON reply is validated before the master sees it.
+* live: an autonomous Claude agent. It gets its system prompt from
+  prompts/*.md, a short task brief and read-only tools (toolkit.py), plans its
+  own steps, gathers and checks evidence, and submits a result that is
+  validated against the evidence before the master sees it (llm.run_agent).
 
 Agents never write to the case and never call each other. The engine applies
 their results to the case and hands the result event to the master.
@@ -16,6 +18,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 
+from . import toolkit as tk
 from .llm import LLM
 from .models import A1, A2, A3, A4, A5, Case, Task
 
@@ -36,25 +39,40 @@ class BaseAgent:
     agent_id = ""
     prompt_file = ""
     required_keys: tuple = ()
+    tools_fn = validate_fn = None   # toolkit functions for live mode
 
     def __init__(self, cfg: dict, llm: LLM | None = None):
         self.cfg, self.llm = cfg, llm
 
     def run(self, task: Task, case: Case, now: datetime) -> dict:
         if self.llm:
-            payload = self.live_payload(task, case, now)
-            return self.llm.call_json(self.prompt_file, payload, self.required_keys,
-                                      bank_name="Example Bank")
+            return self.llm.run_agent(self.prompt_file, self.brief(task, case, now), self.tools(task, case, now),
+                                      lambda res: self.validate(task, case, now, res), bank_name="Example Bank")
         return self.offline(task, case, now)
+
+    def tools(self, task: Task, case: Case, now: datetime) -> list[tk.Tool]:
+        return type(self).tools_fn(self, task, case, now)
+
+    def validate(self, task: Task, case: Case, now: datetime, res: dict) -> list[str]:
+        """Checks a submitted result against the evidence; [] means accepted."""
+        missing = [k for k in self.required_keys if k not in res]
+        if missing:
+            return [f"result is missing keys {missing}"]
+        return type(self).validate_fn(self, task, case, now, res)
+
+    def brief(self, task: Task, case: Case, now: datetime) -> dict:
+        """What the agent is told up front; everything else it looks up with its tools."""
+        return {"task": task.__dict__, "now": now.isoformat(),
+                "case": {k: case.meta.get(k) for k in ("legal_name", "uen", "segment", "due_date")} | {"case_id": case.case_id}}
 
     # subclasses implement
     def offline(self, task: Task, case: Case, now: datetime) -> dict: ...
-    def live_payload(self, task: Task, case: Case, now: datetime) -> dict: ...
 
 
 # ============================================================ Agent 1 · Discovery
 class DiscoveryAgent(BaseAgent):
     agent_id, prompt_file, required_keys = A1, "a1_discovery.md", ("status", "found", "missing")
+    tools_fn, validate_fn = tk.discovery_tools, tk.validate_discovery
 
     def search_all_sources(self, case: Case) -> list[dict]:
         """Stands in for search_dms / search_crm / fetch_registry / run_screening tools."""
@@ -100,11 +118,6 @@ class DiscoveryAgent(BaseAgent):
         return {"status": "PARTIAL" if missing else "DONE", "found": found, "missing": missing,
                 "source_errors": [], "confidence": 0.95}
 
-    def live_payload(self, task, case, now):
-        return {"task": task.__dict__, "client": {k: case.meta[k] for k in ("client_id", "legal_name", "uen", "segment", "prior_assessment_date")},
-                "checklist": self.cfg["checklist"], "due_date": case.meta["due_date"], "now": now.isoformat(),
-                "tool_results": [{k: v for k, v in d.items() if k != "text"} for d in self.search_all_sources(case)],
-                "instruction": "Tool calls were pre-run; their metadata is in tool_results. Build the manifest."}
 
 
 # ============================================================ Agent 2 · Ingestion
@@ -133,6 +146,7 @@ EXTRACTORS = [
 
 class IngestionAgent(BaseAgent):
     agent_id, prompt_file, required_keys = A2, "a2_ingestion.md", ("status", "fields", "flags")
+    tools_fn, validate_fn = tk.ingestion_tools, tk.validate_ingestion
 
     @staticmethod
     def _page(text: str, pos: int) -> int:
@@ -202,10 +216,6 @@ class IngestionAgent(BaseAgent):
                     flags.append({"code": "LOW_CONF_FIELD", "ref": fid, "detail": note})
         return {"status": "DONE" if fields else "FAILED", "fields": fields, "flags": flags}
 
-    def live_payload(self, task, case, now):
-        return {"task": task.__dict__,
-                "field_schema": sorted({f for _, f, _, _ in EXTRACTORS}),
-                "documents": [{k: case.docs[d][k] for k in ("doc_id", "type", "date", "text")} for d in task.scope["docs"]]}
 
 
 # ============================================================ Agent 3 · Drafting
@@ -225,6 +235,7 @@ def jurisdiction(name: str) -> str | None:
 
 class DraftingAgent(BaseAgent):
     agent_id, prompt_file, required_keys = A3, "a3_drafting.md", ("status", "mode", "answers")
+    tools_fn, validate_fn = tk.drafting_tools, tk.validate_drafting
 
     def _f(self, case, fid):
         f = case.fields.get(fid)
@@ -381,14 +392,6 @@ class DraftingAgent(BaseAgent):
             out.append(res)
         return {"status": "DONE", "mode": mode, "answers": out}
 
-    def live_payload(self, task, case, now):
-        return {"task": task.__dict__, "mode": task.scope["mode"],
-                "questions": [q for q in self.cfg["questionnaire"]["questions"] if q["q_id"] in task.scope["questions"]],
-                "fields": case.fields, "maker_inputs": case.maker_inputs,
-                "notes_to_resolve": task.inputs.get("notes", []),
-                "current_answers": case.answers,
-                "scoring_guide": "1 = low, 5 = high per question", "rating_bands": self.cfg["questionnaire"]["rating_bands"],
-                "reference_lists": {"country_risk": self.cfg["questionnaire"]["country_risk"]}}
 
 
 def compute_rating(answers: dict, bands: list) -> dict:
@@ -403,6 +406,7 @@ def compute_rating(answers: dict, bands: list) -> dict:
 # ============================================================ Agent 4 · Review
 class ReviewAgent(BaseAgent):
     agent_id, prompt_file, required_keys = A4, "a4_review.md", ("verdict", "findings")
+    tools_fn, validate_fn = tk.review_tools, tk.validate_review
 
     def offline(self, task, case, now):
         findings, checks = [], {}
@@ -449,15 +453,12 @@ class ReviewAgent(BaseAgent):
         return {"verdict": "FAIL" if bad else "PASS", "findings": findings, "checks_summary": checks,
                 "recomputed_rating": {**rec, "matches_draft": checks["C6"] == "pass"}}
 
-    def live_payload(self, task, case, now):
-        return {"task": task.__dict__, "answers": case.answers, "fields": case.fields, "maker_inputs": case.maker_inputs,
-                "questions": self.cfg["questionnaire"]["questions"], "policy_rules": self.cfg["questionnaire"]["policy"],
-                "rating_bands": self.cfg["questionnaire"]["rating_bands"], "draft_rating": case.rating}
 
 
 # ============================================================ Agent 5 · Notification
 class NotificationAgent(BaseAgent):
     agent_id, prompt_file, required_keys = A5, "a5_notification.md", ("sent",)
+    tools_fn, validate_fn = tk.notification_tools, tk.validate_notification
 
     LEAD = {
         "DOC_REQUEST": "please upload {n} document(s) so drafting can complete",
@@ -490,14 +491,6 @@ class NotificationAgent(BaseAgent):
                          "message_id": f"m-{case.task_seq:03d}{len(sent)}"})
         return {"sent": sent, "action_items": i["items"]}
 
-    def live_payload(self, task, case, now):
-        M = case.meta
-        return {"task": task.__dict__, "template": task.inputs["template"],
-                "recipients": [p for p in (M["maker"], M["checker"]) if p["id"] in task.inputs["to"]],
-                "escalate_cc": task.inputs.get("escalate_cc"),
-                "case": {"case_id": case.case_id, "client": M["legal_name"], "due_date": M["due_date"], "link": M["case_url"]},
-                "items": task.inputs["items"], "context": task.inputs.get("context", {}),
-                "instruction": "Do not call tools; return the messages you would send in the 'sent' array."}
 
 
 def build_agents(cfg: dict, llm: LLM | None, live_agents: set[str]) -> dict:
