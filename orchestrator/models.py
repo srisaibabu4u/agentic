@@ -11,6 +11,21 @@ A1, A2, A3, A4, A5 = "A1_DISCOVERY", "A2_INGEST", "A3_DRAFT", "A4_REVIEW", "A5_N
 AGENT_NAMES = {A1: "Agent 1 · Discovery", A2: "Agent 2 · Ingestion", A3: "Agent 3 · Drafting",
                A4: "Agent 4 · Review", A5: "Agent 5 · Notification"}
 
+LIVE_NAMES = {"A1": A1, "A2": A2, "A3": A3, "A4": A4, "A5": A5}
+
+
+def parse_live(spec: str) -> tuple[set[str], bool]:
+    """--live value -> (agents that call Claude, whether the master does).
+    'A3,A4' some agents; 'master' the master; 'all' every agent and the master."""
+    names = {x.strip().upper() for x in (spec or "").split(",") if x.strip()}
+    if "ALL" in names:
+        return set(LIVE_NAMES.values()), True
+    unknown = names - set(LIVE_NAMES) - {"MASTER"}
+    if unknown:
+        raise ValueError(f"unknown --live name(s) {sorted(unknown)}; use A1..A5, master or all")
+    return {LIVE_NAMES[n] for n in names - {"MASTER"}}, "MASTER" in names
+
+
 # Status the case moves to when the master dispatches work to an agent.
 STATUS_ON_DISPATCH = {A1: "DISCOVERY", A2: "INGESTION", A3: "IN_DRAFT", A4: "AUTO_REVIEW"}
 
@@ -44,10 +59,13 @@ class Decision:
     rules_matched: list[str]
     guardrails_triggered: list[str]
     rationale: str
+    meta: dict = field(default_factory=dict)   # agentic master only: who decided, its trace, the playbook's view
 
     def to_dict(self) -> dict:
         d = asdict(self)
         d["tasks"] = [asdict(t) for t in self.tasks]
+        if not d["meta"]:
+            del d["meta"]
         return d
 
 

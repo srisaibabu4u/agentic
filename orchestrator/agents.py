@@ -46,9 +46,14 @@ class BaseAgent:
 
     def run(self, task: Task, case: Case, now: datetime) -> dict:
         if self.llm:
-            return self.llm.run_agent(self.prompt_file, self.brief(task, case, now), self.tools(task, case, now),
-                                      lambda res: self.validate(task, case, now, res), bank_name="Example Bank")
-        return self.offline(task, case, now)
+            res = self.llm.run_agent(self.prompt_file, self.brief(task, case, now), self.tools(task, case, now),
+                                     lambda res: self.validate(task, case, now, res), bank_name="Example Bank")
+        else:
+            res = self.offline(task, case, now)
+        if res.get("status") == "FAILED":  # the master retries the same work, so it needs the scope back
+            res.setdefault("scope", task.scope)
+            res.setdefault("inputs", task.inputs)
+        return res
 
     def tools(self, task: Task, case: Case, now: datetime) -> list[tk.Tool]:
         return type(self).tools_fn(self, task, case, now)

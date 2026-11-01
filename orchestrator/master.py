@@ -19,6 +19,12 @@ MAX_RETRIES = 3
 LOW_CONFIDENCE = 0.80
 
 
+def retry_key(agent: str, scope: dict) -> str:
+    """G4 counts failures of one agent on one piece of work. Each retry is a new task with a new id,
+    so the key is the agent and the scope it was given, not the task id."""
+    return f"{agent}:{sorted((k, str(v)) for k, v in (scope or {}).items())}"
+
+
 def business_days_between(start: datetime, end_date: str) -> int:
     from datetime import date, timedelta
     d, end = start.date(), date.fromisoformat(end_date)
@@ -93,7 +99,7 @@ class Master:
             agent, res = ev.source, ev.payload
 
             if res.get("status") == "FAILED":
-                key = f"{agent}:{ev.task_id}"
+                key = retry_key(agent, res.get("scope", {}))
                 n = case.retries.get(key, 0) + 1
                 case.retries[key] = n
                 if n >= MAX_RETRIES:

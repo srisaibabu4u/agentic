@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task, TimelineEvent } from '../api'
 import { AGENT_LABEL, fmtTime, STATUS_LABEL } from '../format'
-import { RuleChips } from '../ui'
+import { DecidedBy, RuleChips } from '../ui'
 
 function title(e: TimelineEvent): string {
   const who = e.actor?.full_name
@@ -101,6 +101,7 @@ export default function Timeline({ events, selectedSeq, replaySeq = null, onSele
                       </span>
                       {changed && <span className="small">{STATUS_LABEL[d.prev_status]} <span className="arrow">→</span> <strong>{STATUS_LABEL[d.new_status]}</strong></span>}
                       <RuleChips rules={d.rules_matched} guards={d.guardrails_triggered} />
+                      <DecidedBy d={d} />
                     </div>
                     {d.decision !== 'WAIT' && <p className="tl-why">{d.rationale}</p>}
                     {d.tasks.length > 0 && <ul className="tl-tasks small">{d.tasks.map((t) => <TaskLine key={t.task_ref} t={t} />)}</ul>}

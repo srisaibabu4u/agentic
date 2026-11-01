@@ -94,18 +94,17 @@ def start_case(scenario: str = "sample_case", mode: str = "interactive", live_ag
 
     mode: "interactive" (you act as maker/checker via maker_submit / checker_* tools)
           or "scripted" (plays the maker/checker actions stored in the scenario, runs to the end).
-    live_agents: comma list of A1..A5 or "all" to call Claude for those agents (needs ANTHROPIC_API_KEY).
+    live_agents: comma list of A1..A5 and/or "master", or "all", to call Claude for those (needs ANTHROPIC_API_KEY).
     Starting a case with an id that is already open replaces it.
     """
     cfg = _load_scenario(scenario)
-    llm, live = None, set()
-    if live_agents:
+    from orchestrator.models import parse_live
+    llm, (live, live_master) = None, parse_live(live_agents)
+    if live or live_master:
         from orchestrator.llm import LLM
-        ids = {"A1": "A1_DISCOVERY", "A2": "A2_INGEST", "A3": "A3_DRAFT", "A4": "A4_REVIEW", "A5": "A5_NOTIFY"}
-        live = set(ids.values()) if live_agents == "all" else {ids[x.strip().upper()] for x in live_agents.split(",")}
         llm = LLM()
     cid = cfg["case"]["case_id"]
-    eng = Engine(cfg, ROOT / "out" / "mcp" / cid, llm=llm, live_agents=live)
+    eng = Engine(cfg, ROOT / "out" / "mcp" / cid, llm=llm, live_agents=live, live_master=live_master)
     CASES[cid] = eng
     buf = io.StringIO()
     with redirect_stdout(buf):
@@ -145,6 +144,8 @@ def explain_decisions(case_id: str, last_n: int = 5) -> list[dict]:
              "decision": r["decision"]["decision"], "new_status": r["decision"]["new_status"],
              "rules": r["decision"]["rules_matched"], "guardrails": r["decision"]["guardrails_triggered"],
              "rationale": r["decision"]["rationale"],
+             "decided_by": r["decision"].get("meta", {}).get("decided_by", "playbook"),
+             "playbook": r["decision"].get("meta", {}).get("playbook"),
              "tasks": [f"{t['task_id']} {AGENT_NAMES[t['agent']]} {t['scope']}" for t in r["decision"]["tasks"]]}
             for r in recs]
 

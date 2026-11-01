@@ -91,6 +91,9 @@ export interface Decision {
   decision: 'DISPATCH' | 'WAIT' | 'CLOSE' | 'ESCALATE'; prev_status: CaseStatus; new_status: CaseStatus
   rules_matched: string[]; guardrails_triggered: string[]; rationale: string; decided_at: string
   config_version: string | null; state: Record<string, unknown>; tasks: Task[]
+  decided_by: 'playbook' | 'master_agent' | 'code' | 'playbook_fallback'
+  agrees_with_playbook: boolean | null
+  playbook: { decision: string; new_status: CaseStatus; rules_matched: string[]; agents: string[] } | null
 }
 export interface TimelineEvent {
   seq: number; type: string; source: string; occurred_at: string; actor: UserRef | null

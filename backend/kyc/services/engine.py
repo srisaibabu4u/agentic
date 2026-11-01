@@ -8,7 +8,9 @@ The steps mirror orchestrator.engine.Engine.handle():
 1. lock the case row (SELECT ... FOR UPDATE), so only one decision runs per case at a time;
 2. rebuild the Case from the tables (store.load_case);
 3. for a human event, apply it to the case (orchestrator.state.apply_human);
-4. Master.decide(case, event, now): the same routing rules and guardrails;
+4. decide: Master (the rule playbook) or, with a live master, AgenticMaster (Claude decides,
+   code enforces the guardrails). The case stays locked while it decides, so a slow model call
+   holds up only this case; other engines skip it and work on other cases;
 5. store the decision, queue its tasks, update the case, mark the event processed.
 
 Agent results are applied to the case by the worker when the agent finishes
@@ -24,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from orchestrator import state
 from orchestrator.master import Master
+from orchestrator.master_agent import AgenticMaster
 from orchestrator.models import Event
 
 from ..db import models as m
@@ -47,16 +50,17 @@ def next_event_case(db: Session) -> int | None:
         .order_by(m.Case.id).limit(1).with_for_update(skip_locked=True))
 
 
-def process_next(db: Session) -> m.MasterDecision | None:
+def process_next(db: Session, llm=None) -> m.MasterDecision | None:
+    """llm: when given, the master agent decides (live master); otherwise the rule playbook."""
     case_id = next_event_case(db)
     if case_id is None:
         return None
     ev = db.scalars(select(m.CaseEvent).where(m.CaseEvent.case_id == case_id, m.CaseEvent.processed_at.is_(None))
                     .order_by(m.CaseEvent.seq).limit(1)).one()
-    return process_event(db, ev)
+    return process_event(db, ev, llm)
 
 
-def process_event(db: Session, ev: m.CaseEvent) -> m.MasterDecision:
+def process_event(db: Session, ev: m.CaseEvent, llm=None) -> m.MasterDecision:
     row = db.get(m.Case, ev.case_id, with_for_update=True)
     cfg = store.load_config(db, row)
     case = store.load_case(db, row, cfg)
@@ -69,14 +73,15 @@ def process_event(db: Session, ev: m.CaseEvent) -> m.MasterDecision:
         ev.payload = event.payload  # e.g. CHECKER_APPROVE gains next_review, as in the in-memory audit log
 
     prev = case.status
-    decision = Master(cfg).decide(case, event, now)
+    decision = (AgenticMaster(cfg, llm) if llm else Master(cfg)).decide(case, event, now)
     case.status = decision.new_status
     case.pending += decision.tasks
 
     md = m.MasterDecision(case_id=row.id, event_id=ev.id, decision=decision.decision, prev_status=prev,
                           new_status=decision.new_status, rules_matched=decision.rules_matched,
                           guardrails_triggered=decision.guardrails_triggered, rationale=decision.rationale,
-                          state_snapshot=case.snapshot(), config_version=store.config_version(cfg), decided_at=now)
+                          state_snapshot=case.snapshot(), config_version=store.config_version(cfg), decided_at=now,
+                          shadow=decision.meta or None)  # master agent: who decided, its trace, the playbook's view
     db.add(md)
     db.flush()
     store.save_case(db, row, case, decision_id=md.id, actor_id=ev.actor_id)
