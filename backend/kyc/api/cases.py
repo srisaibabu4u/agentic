@@ -217,9 +217,13 @@ def document(doc_id: int, db: Session = Depends(get_db)) -> dict:
 
 # ============================================================== live updates
 @router.get("/cases/{ref}/stream")
-def stream(ref: str, request: Request, timeout: float = Query(300, le=3600, description="seconds before the stream ends")):
+def stream(ref: str, request: Request, timeout: float = Query(300, le=3600, description="seconds before the stream ends"),
+           db: Session = Depends(get_db)):
     """Server-sent events: one 'case' event whenever the case changes. Ends when the case closes or on timeout;
     browsers' EventSource reconnects automatically."""
+    # The sign-in check ran on this request's session. End its transaction now: otherwise it stays open for the
+    # whole stream and blocks TRUNCATE (reseeding) and migrations for as long as any case page is open.
+    db.close()
     factory = request.app.state.session_factory
     with factory() as db:
         get_case(db, ref)
